@@ -507,14 +507,14 @@ mv ILSVRC2012/output/validation-* /userhome/datasets/imagenet/val
 | 5    |         --slave          | 跟 trialConcurrency参数保持一致 |        1        |
 | 6    |           --ip           |          master节点ip           |    127.0.0.1    |
 | 7    |       --batch_size       |           batch size            |       512       |
-| 8    |         --epoch          |         正常训练epoch数         |       90        |
+| 8    |         --epoch          |         正常训练epoch数         |       60        |
 | 9    |       --initial_lr       |           初始学习率            |      1e-1       |
 | 10   |        --final_lr        |           最低学习率            |        0        |
 | 11   |     --train_data_dir     |         训练数据集路径          |      None       |
 | 12   |      --val_data_dir      |         验证数据集路径          |      None       |
-| 13   |        --warmup_1        |    warm up机制第一轮epoch数     |       60        |
-| 14   |        --warmup_2        |    warm up机制第二轮epoch数     |       70        |
-| 15   |        --warmup_3        |    warm up机制第三轮epoch数     |       80        |
+| 13   |        --warmup_1        |    warm up机制第一轮epoch数     |       15        |
+| 14   |        --warmup_2        |    warm up机制第二轮epoch数     |       30        |
+| 15   |        --warmup_3        |    warm up机制第三轮epoch数     |       45        |
 
 
 可参照如下配置：
@@ -547,8 +547,8 @@ trial:
        --ip 127.0.0.1 \							  # 6
        --batch_size 512 \						  # 7
        --epoch 90 \						          # 8
-       --initial_lr 2e-1 \						  # 9
-       --final_lr 1e-5 \						  # 10
+       --initial_lr 1e-1 \						  # 9
+       --final_lr 0 \						  # 10
        --train_data_dir /gdata/ILSVRC2012/ImageNet-Tensorflow/train_tfrecord/ \  # 11
        --val_data_dir /gdata/ILSVRC2012/ImageNet-Tensorflow/validation_tfrecord/ # 12
 
