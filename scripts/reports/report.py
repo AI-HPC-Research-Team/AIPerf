@@ -101,6 +101,8 @@ def main(args, save_folder):
 
     internal_log = save_log.display_log(results)
     logs += internal_log
+    logs += "--------------------------------------------------------------------\n"
+    logs += str(results)
     print(logs)
     with open(os.path.join(save_folder, 'results.txt'), 'w') as txtfile:
         txtfile.write(logs)
