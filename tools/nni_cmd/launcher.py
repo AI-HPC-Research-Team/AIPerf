@@ -1,5 +1,4 @@
 # Copyright (c) Microsoft Corporation.
-# Copyright (c) Peng Cheng Laboratory.
 # Licensed under the MIT license.
 
 import json
@@ -500,6 +499,7 @@ def launch_experiment(args, experiment_config, mode, config_file_name, experimen
             print_normal('Stopping experiment...')
     #run resource monirot
     start_monitor(experiment_id)
+
 
 def create_experiment(args):
     '''start a new experiment'''

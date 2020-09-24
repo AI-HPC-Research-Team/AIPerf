@@ -1,5 +1,5 @@
 {
     "dropout_rate": {"_type":"uniform","_value": [0,0.2]},
-    "kernel_size": {"_type": "choice","_value": [3,5,7]},
-    "batch_size": {"_type": "uniform","_value": [12,16]}
+    "kernel_size": {"_type": "choice","_value": [3,4]},
+    "batch_size": {"_type": "uniform","_value": [192,320]}
 }

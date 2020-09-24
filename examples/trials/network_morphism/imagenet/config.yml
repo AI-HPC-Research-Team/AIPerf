@@ -1,9 +1,12 @@
 authorName: default
 experimentName: example_imagenet-network-morphism-test
-trialConcurrency: 14
+trialConcurrency: 1
 maxExecDuration: 12h
-maxTrialNum: 300
+maxTrialNum: 6000
+#choice: local, remote, pai
 trainingServicePlatform: local
+#searchSpacePath: search_space.json
+#choice: true, false
 useAnnotation: false
 tuner:
   #choice: TPE, Random, Anneal, Evolution, BatchTuner, NetworkMorphism
@@ -21,13 +24,17 @@ tuner:
     #number of classes
     n_output_node: 1000
 trial:
-  command: CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 \
-           srun -N 1 -n 1 --ntasks-per-node=1 --cpus-per-task=23 \
-           python3 imagenet_train.py \
-           --slave 14 \
-           --ip 10.133.75.11 \
-           --batch_size 512 \
-           --train_data_dir /gdata/ILSVRC2012/ImageNet-Tensorflow/train_tfrecord \
-           --val_data_dir /gdata/ILSVRC2012/ImageNet-Tensorflow/validation_tfrecord 
-  codeDir: .
-  gpuNum: 0
+    command: NPU_NUM=8 \
+             srun -N 1 -n 1 --ntasks-per-node=1 --cpus-per-task=191 \
+             python3 imagenet_train.py \
+             --slave 1 \
+             --ip 172.17.0.2 \
+             --batch_size 256 \
+             --train_data_dir /home/data/train/ \
+             --val_data_dir /home/data/val/ \
+             --warmup_1 60 \   
+             --warmup_2 70 \   
+             --warmup_3 80  
+             
+    codeDir: .
+    gpuNum: 0

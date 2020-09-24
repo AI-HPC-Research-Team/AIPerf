@@ -1,5 +1,3 @@
-# Copyright (c) Microsoft Corporation
-# Copyright (c) Peng Cheng Laboratory
 # All rights reserved.
 #
 # MIT License

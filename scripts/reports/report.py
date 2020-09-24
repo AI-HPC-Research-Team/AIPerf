@@ -73,11 +73,13 @@ def main_grid(time, values, save_folder, filename):
 
 def main(args, save_folder):
     results, trial_id_list, experiment_data = score.cal_report_results(args.id)
+
     main_grid(results['real_time'], results['PFLOPS'], save_folder, 'Score (in PFLOPS).png')
     main_grid(results['real_time'], results['Error'], save_folder, 'Error(%).png')
     main_grid(results['real_time'], results['Score'], save_folder, 'Regulated Score (in PFLOPS).png')
     errorth = 35.0
     timeth = 1
+
     logs = "======================================================================\n"
     if float(results['Error'][-1]) > errorth:
         logs += "!!! Test failed due to low accuracy !!!\n"
@@ -113,7 +115,9 @@ if __name__=='__main__':
     save_folder = os.path.join(save_path, 'results')
     if not os.path.exists(save_folder):
         os.mkdir(save_folder)
+
     results, trial_id_list, experiment_data = main(args, save_folder)
+    # print(results)
     start_time = experiment_data[trial_id_list[0]][0][0][1]
     for index in range(len(trial_id_list)-1,-1,-1):
         if trial_id_list[index] in experiment_data:

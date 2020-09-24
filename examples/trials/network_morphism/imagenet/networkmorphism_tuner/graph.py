@@ -1,17 +1,18 @@
 # Copyright (c) Microsoft Corporation.
-# Copyright (c) Peng Cheng Laboratory.
+# Copyright (c) Peng Cheng Laboratory
 # Licensed under the MIT license.
 
 import json
 from collections.abc import Iterable
 from copy import deepcopy, copy
 from queue import Queue
-import os
-os.environ['HDF5_USE_FILE_LOCKING']='FALSE'
+
 import numpy as np
 #import torch
+#import mindspore.nn as nn
+#from mindspore.ops import operations as P
 
-from nni.networkmorphism_tuner.layer_transformer import (
+from networkmorphism_tuner.layer_transformer import (
     add_noise,
     wider_bn,
     wider_next_conv,
@@ -22,7 +23,7 @@ from nni.networkmorphism_tuner.layer_transformer import (
     init_conv_weight,
     init_bn_weight,
 )
-from nni.networkmorphism_tuner.layers import (
+from networkmorphism_tuner.layers import (
     StubAdd,
     StubConcatenate,
     StubReLU,
@@ -30,16 +31,16 @@ from nni.networkmorphism_tuner.layers import (
     get_conv_class,
     is_layer,
     layer_width,
-    set_keras_weight_to_stub,
-    set_stub_weight_to_keras,
-    set_stub_weight_to_torch,
-    set_torch_weight_to_stub,
-    to_real_keras_layer,
-    to_real_tf_layer,
+    #set_keras_weight_to_stub,
+    #set_stub_weight_to_keras,
+    #set_stub_weight_to_torch,
+    #set_torch_weight_to_stub,
+    #to_real_keras_layer,
+    to_real_mindspore_layer,
     layer_description_extractor,
     layer_description_builder,
 )
-from nni.networkmorphism_tuner.utils import Constant
+from networkmorphism_tuner.utils import Constant
 
 
 class NetworkDescriptor:
@@ -407,8 +408,6 @@ class Graph:
 
         self._insert_new_layers([new_layer], input_id, output_id)
 
-        return output_id
-
     def to_wider_model(self, pre_layer_id, n_add):
         """Widen the last dimension of the output of the pre_layer.
         Args:
@@ -437,8 +436,6 @@ class Graph:
         new_layers[-1].input = self.node_list[temp_output_id]
         new_layers[-1].output = self.node_list[end_node_id]
         self._redirect_edge(start_node_id, end_node_id, new_node_id)
-        return temp_output_id
-        
 
     def _block_end_node(self, layer_id, block_size):
         ret = self.layer_id_to_output_node_ids[layer_id][0]
@@ -456,32 +453,6 @@ class Graph:
             layer_id: the convolutional layer ID.
         """
         return self._block_end_node(layer_id, Constant.CONV_BLOCK_DISTANCE)
-    
-    def _insert_conv_layer_chain2(self, start_node_id, end_node_id,filters_start, filters_end):
-        skip_output_id = start_node_id
-        num = len(self._get_pooling_layers(start_node_id, end_node_id))
-#       f = open("/root/trials/" + "/chain.log", "a+")
-#       f.write("num=" + str(num) + "\n")
-
-        if num >= 1:
-            new_layer = get_conv_class(self.n_dim)(filters_start, filters_end, 1, 2**num)
-            skip_output_id = self.add_layer(new_layer, skip_output_id)
-            skip_output_id = self.add_layer(self.batch_norm(self.node_list[skip_output_id].shape[-1]), skip_output_id)
-        elif filters_start != filters_end:
-            new_layer = get_conv_class(self.n_dim)(filters_start, filters_end, 1, 1)
-            skip_output_id = self.add_layer(new_layer, skip_output_id)
-            skip_output_id = self.add_layer(self.batch_norm(self.node_list[skip_output_id].shape[-1]), skip_output_id)
-        return skip_output_id
-
-    def _insert_conv_layer_chain3(self, start_node_id, end_node_id,filters_start):
-        skip_output_id = start_node_id
-        num = len(self._get_pooling_layers(start_node_id, end_node_id))
-        if num >= 1:
-            new_layer = get_conv_class(self.n_dim)(filters_start, filters_start, 1, 2**num)
-            skip_output_id = self.add_layer(new_layer, skip_output_id)
-            skip_output_id = self.add_layer(self.batch_norm(self.node_list[skip_output_id].shape[-1]), skip_output_id)
-        return skip_output_id
-    
 
     def to_add_skip_model(self, start_id, end_id):
         """Add a weighted add skip-connection from after start node to end node.
@@ -497,19 +468,16 @@ class Graph:
         pre_end_node_id = self.layer_id_to_input_node_ids[end_id][0]
         end_node_id = self.layer_id_to_output_node_ids[end_id][0]
 
-        skip_output_id = self._insert_conv_layer_chain2(
-            start_node_id, end_node_id, filters_start, filters_end)
-
-        # skip_output_id = self._insert_pooling_layer_chain(
-        #     start_node_id, end_node_id)
+        skip_output_id = self._insert_pooling_layer_chain(
+            start_node_id, end_node_id)
 
         # Add the conv layer
-        # new_conv_layer = get_conv_class(
-        #     self.n_dim)(
-        #         filters_start,
-        #         filters_end,
-        #         1)
-        # skip_output_id = self.add_layer(new_conv_layer, skip_output_id)
+        new_conv_layer = get_conv_class(
+            self.n_dim)(
+                filters_start,
+                filters_end,
+                1)
+        skip_output_id = self.add_layer(new_conv_layer, skip_output_id)
 
         # Add the add layer.
         add_input_node_id = self._add_node(
@@ -531,10 +499,10 @@ class Graph:
             filter_shape = (1,) * self.n_dim
             weights = np.zeros((filters_end, filters_start) + filter_shape)
             bias = np.zeros(filters_end)
-            # new_conv_layer.set_weights(
-            #     (add_noise(weights, np.array([0, 1])), add_noise(
-            #         bias, np.array([0, 1])))
-            # )
+            new_conv_layer.set_weights(
+                (add_noise(weights, np.array([0, 1])), add_noise(
+                    bias, np.array([0, 1])))
+            )
 
     def to_concat_skip_model(self, start_id, end_id):
         """Add a weighted add concatenate connection from after start node to end node.
@@ -551,11 +519,8 @@ class Graph:
         pre_end_node_id = self.layer_id_to_input_node_ids[end_id][0]
         end_node_id = self.layer_id_to_output_node_ids[end_id][0]
 
-        skip_output_id = self._insert_conv_layer_chain3(
-            start_node_id, end_node_id, filters_start)
-
-        # skip_output_id = self._insert_pooling_layer_chain(
-        #     start_node_id, end_node_id)
+        skip_output_id = self._insert_pooling_layer_chain(
+            start_node_id, end_node_id)
 
         concat_input_node_id = self._add_node(
             deepcopy(self.node_list[end_node_id]))
@@ -673,26 +638,26 @@ class Graph:
         for layer in self.layer_list:
             layer.weights = None
 
-    def produce_torch_model(self):
-        """Build a new Torch model based on the current graph."""
-        return TorchModel(self)
+    #def produce_torch_model(self):
+    #    """Build a new Torch model based on the current graph."""
+    #    return TorchModel(self)
 
-    def produce_keras_model(self):
-        """Build a new keras model based on the current graph."""
-        return KerasModel(self).model
+    #def produce_keras_model(self):
+    #    """Build a new keras model based on the current graph."""
+    #    return KerasModel(self).model
 
-    def produce_tf_model(self):
-        """Build a new tensorflow.keras model based on the current graph."""
-        return TfModel(self).model
+    #def produce_onnx_model(self):
+    #    """Build a new ONNX model based on the current graph."""
+    #    return ONNXModel(self)
 
-    def produce_onnx_model(self):
-        """Build a new ONNX model based on the current graph."""
-        return ONNXModel(self)
+    #def parsing_onnx_model(self, onnx_model):
+    #    '''to do in the future to use the onnx model
+    #    '''
+    #    return ONNXModel(onnx_model)
 
-    def parsing_onnx_model(self, onnx_model):
-        '''to do in the future to use the onnx model
-        '''
-        return ONNXModel(onnx_model)
+    def produce_MindSpore_model(self):
+        """Build a new MindSpore model based on the current graph."""
+        return MindSporeModel(self)
 
     def produce_json_model(self):
         """Build a new Json model based on the current graph."""
@@ -732,17 +697,7 @@ class Graph:
                 if v in main_chain and u in main_chain:
                     ret.append(layer_id)
         return ret
-    
-    def get_layers_id(self,output_id):
-        """Return a list of layer IDs in the main chain."""
-        main_chain = self.get_main_chain()
-        ret = []
-        for u in main_chain:
-            for v, layer_id in self.adj_list[u]:
-                if v in main_chain and u in main_chain and v==output_id:
-                    aaa=layer_id
-        return aaa
-    
+
     def _conv_layer_ids_in_order(self):
         return list(
             filter(
@@ -763,16 +718,6 @@ class Graph:
             if is_layer(layer, "Add") or is_layer(layer, "Concatenate"):
                 continue
             ret.append(layer_id)
-        return ret
-    
-    def deep_layer_ids2(self):
-        ret = []
-        for layer_id in self.get_main_chain_layers():
-            layer = self.layer_list[layer_id]
-            if is_layer(layer, "GlobalAveragePooling"):
-                break
-            if is_layer(layer, "ReLU"):
-                ret.append(layer_id)
         return ret
 
     def wide_layer_ids(self):
@@ -815,52 +760,52 @@ class Graph:
         return ret
 
 
-#class TorchModel(torch.nn.Module):
-#    """A neural network class using pytorch constructed from an instance of Graph."""
-#
-#    def __init__(self, graph):
-#        super(TorchModel, self).__init__()
-#        self.graph = graph
-#        self.layers = []
-#        for layer in graph.layer_list:
-#            self.layers.append(layer.to_real_layer())
-#        if graph.weighted:
-#            for index, layer in enumerate(self.layers):
-#                set_stub_weight_to_torch(self.graph.layer_list[index], layer)
-#        for index, layer in enumerate(self.layers):
-#            self.add_module(str(index), layer)
-#
-#    def forward(self, input_tensor):
-#        topo_node_list = self.graph.topological_order
-#        output_id = topo_node_list[-1]
-#        input_id = topo_node_list[0]
-#
-#        node_list = deepcopy(self.graph.node_list)
-#        node_list[input_id] = input_tensor
-#
-#        for v in topo_node_list:
-#            for u, layer_id in self.graph.reverse_adj_list[v]:
-#                layer = self.graph.layer_list[layer_id]
-#                torch_layer = self.layers[layer_id]
-#
-#                if isinstance(layer, (StubAdd, StubConcatenate)):
-#                    edge_input_tensor = list(
-#                        map(
-#                            lambda x: node_list[x],
-#                            self.graph.layer_id_to_input_node_ids[layer_id],
-#                        )
-#                    )
-#                else:
-#                    edge_input_tensor = node_list[u]
-#
-#                temp_tensor = torch_layer(edge_input_tensor)
-#                node_list[v] = temp_tensor
-#        return node_list[output_id]
-#
-#    def set_weight_to_graph(self):
-#        self.graph.weighted = True
-#        for index, layer in enumerate(self.layers):
-#            set_torch_weight_to_stub(layer, self.graph.layer_list[index])
+'''
+class TorchModel(torch.nn.Module):
+
+    def __init__(self, graph):
+        super(TorchModel, self).__init__()
+        self.graph = graph
+        self.layers = []
+        for layer in graph.layer_list:
+            self.layers.append(layer.to_real_layer())
+        if graph.weighted:
+            for index, layer in enumerate(self.layers):
+                set_stub_weight_to_torch(self.graph.layer_list[index], layer)
+        for index, layer in enumerate(self.layers):
+            self.add_module(str(index), layer)
+
+    def forward(self, input_tensor):
+        topo_node_list = self.graph.topological_order
+        output_id = topo_node_list[-1]
+        input_id = topo_node_list[0]
+
+        node_list = deepcopy(self.graph.node_list)
+        node_list[input_id] = input_tensor
+
+        for v in topo_node_list:
+            for u, layer_id in self.graph.reverse_adj_list[v]:
+                layer = self.graph.layer_list[layer_id]
+                torch_layer = self.layers[layer_id]
+
+                if isinstance(layer, (StubAdd, StubConcatenate)):
+                    edge_input_tensor = list(
+                        map(
+                            lambda x: node_list[x],
+                            self.graph.layer_id_to_input_node_ids[layer_id],
+                        )
+                    )
+                else:
+                    edge_input_tensor = node_list[u]
+
+                temp_tensor = torch_layer(edge_input_tensor)
+                node_list[v] = temp_tensor
+        return node_list[output_id]
+
+    def set_weight_to_graph(self):
+        self.graph.weighted = True
+        for index, layer in enumerate(self.layers):
+            set_torch_weight_to_stub(layer, self.graph.layer_list[index])
 
 
 class KerasModel:
@@ -918,105 +863,231 @@ class KerasModel:
         for index, layer in enumerate(self.layers):
             set_keras_weight_to_stub(layer, self.graph.layer_list[index])
 
-class TfModel:
-    def __init__(self, graph):
-        import tensorflow
-        from tensorflow.python.keras import backend as K
-        import h5py
-        self.graph = graph
-        self.layers = []
-        for layer in graph.layer_list:
-            self.layers.append(to_real_tf_layer(layer))
-
-        # Construct the keras graph.
-        # Input
-        topo_node_list = self.graph.topological_order
-        output_id = topo_node_list[-1]
-        input_id = topo_node_list[0]
-        input_tensor = tensorflow.keras.layers.Input(
-            shape=graph.node_list[input_id].shape)
-
-        node_list = deepcopy(self.graph.node_list)
-        node_list[input_id] = input_tensor
-
-        # Output
-        for v in topo_node_list:
-            for u, layer_id in self.graph.reverse_adj_list[v]:
-                layer = self.graph.layer_list[layer_id]
-                tf_layer = self.layers[layer_id]
-
-                if isinstance(layer, (StubAdd, StubConcatenate)):
-                    edge_input_tensor = list(
-                        map(
-                            lambda x: node_list[x],
-                            self.graph.layer_id_to_input_node_ids[layer_id],
-                        )
-                    )
-                else:
-                    edge_input_tensor = node_list[u]
-
-                temp_tensor = tf_layer(edge_input_tensor)
-                node_list[v] = temp_tensor
-
-        output_tensor = node_list[output_id]
-        output_tensor = tensorflow.keras.layers.Activation("softmax", name="activation_add")(
-            output_tensor
-        )
-        self.model = tensorflow.keras.models.Model(
-            inputs=input_tensor, outputs=output_tensor)
-
-        self.count = 0
-        self.loadh5 = 0
-        try:
-            with h5py.File("/userhome/resnet50_weights_tf_dim_ordering_tf_kernels.h5", 'r') as f:
-                layer_names = self.load_attributes_from_hdf5_group(f, 'layer_names')
-                filtered_layer_names = []
-                for name in layer_names:
-                    g = f[name]
-                    weight_names = self.load_attributes_from_hdf5_group(g, 'weight_names')
-                    if weight_names:
-                        filtered_layer_names.append(name)
-                layer_names = filtered_layer_names  # 107 layers
-                try:
-                    for k, name in enumerate(layer_names):
-                        g = f[name]
-                        weight_names = self.load_attributes_from_hdf5_group(g, 'weight_names')
-                        weight_values = [np.asarray(g[weight_name]) for weight_name in weight_names]
-                        while not self.legacy_weights():
-                            self.count += 1
-                        symbolic_weights = self.legacy_weights()
-                        weight_value_tuples = zip(symbolic_weights, weight_values)
-                        try:
-                            K.batch_set_value(weight_value_tuples)
-                            self.loadh5 += 1
-                        except Exception as E:
-                            continue 
-                        self.count += 1
-                except Exception as E:
-                    self.loadh5 += 0
-            print("############## Loading initial weights for " + str(self.loadh5) + " layers.")
-        except Exception as E:
-            print(E)
-
-    def legacy_weights(self):
-        return self.layers[self.count].trainable_weights + self.layers[self.count].non_trainable_weights
-
-    def load_attributes_from_hdf5_group(self, group, name):
-        if name in group.attrs:
-            data = [n.decode('utf8') for n in group.attrs[name]]
-        else:
-            data = []
-            chunk_id = 0
-            while '%s%d' % (name, chunk_id) in group.attrs:
-                data.extend(
-                    [n.decode('utf8') for n in group.attrs['%s%d' % (name, chunk_id)]])
-                chunk_id += 1
-        return data
+'''
 
 class ONNXModel:
-    # to do in the future using onnx ir
     def __init__(self, graph):
         pass
+
+
+from mindspore import nn
+from mindspore.ops import operations as P
+from networkmorphism_tuner.layers import (
+    to_real_mindspore_layer,
+    TYPE_DICT,
+    TYPE_DICT_REVERSE
+)
+
+class MindSporeModel(nn.Cell):
+    def __init__(self, graph):
+        """
+        layers: mindspore层列表，按照op的拓扑序存放
+        graph: nni表示的图
+        topo_node_list: tensor的拓扑序排列列表
+        edge_node_adj_list: op(edge)-tensor(node) 邻接表，从topo_node_list翻译而来，用于生成op的邻接表
+        out_in_dst_edge: 参考generate_out_in_dst_edge方法
+        edge_adj_list: op的邻接表
+        topo_edge_list: op的拓扑序列表
+        edge_len: op数量
+        input_list: 对于layer中按照拓扑序排列的op，存放其输入op列表
+        topo_index: 根据op id，返回其在拓扑序中的位置
+        layer_type: 存放op的种类，与layer中的拓扑序一一对应
+        layer_attr: 存放初始化好的各种layer
+        layer_count: 字典，存放各种算子类型出现次数
+        """
+        super(MindSporeModel, self).__init__()
+        self.layers = []
+        self.graph = graph
+        self.topo_node_list = self.graph.topological_order
+        self.edge_node_adj_list = self.generate_edge_node_adj_list()
+        self.out_in_dst_edge = self.generate_out_in_dst_edge()
+        self.edge_adj_list = self.generate_edge_adj_list()
+        self.topo_edge_list = self.generate_topological_edge()
+        self.edge_len = len(self.topo_edge_list)
+        self.input_list = self.get_input()
+        self.topo_index = self.generate_topo_index_dict()
+        self.layer_type = []
+        self.concat = P.Concat(axis=1)
+        self.layer_attr = []
+        self.layer_count = dict()
+
+        self.adjust_multi_input_layer()
+
+        for v in self.topo_edge_list:
+            graph_layer = graph.layer_list[int(v)]
+            mindspore_layer, layer_type = to_real_mindspore_layer(graph_layer)
+            self.layers.append(mindspore_layer)
+            self.layer_type.append(layer_type)
+            if layer_type in self.layer_count:
+                self.layer_count[layer_type] += 1
+            else:
+                self.layer_count[layer_type] = 1
+            # 规避bn空指针问题+命名后独立各bn权值，防止infershape失败
+            op_type = TYPE_DICT_REVERSE[layer_type]
+            op_num = self.layer_count[layer_type]
+            op_name = op_type + str(op_num)
+            setattr(self, op_name, mindspore_layer)
+            self.layer_attr.append(eval("self." + op_name))
+    
+
+    def adjust_multi_input_layer(self):
+        for i, layer in enumerate(self.graph.layer_list):
+            if isinstance(layer, StubAdd) or isinstance(layer, StubConcatenate):
+                topo_index = self.topo_index[str(i)]
+                layer_input_tensor_id = list(map(lambda x: self.graph.node_to_id[x], layer.input))
+                layer_input_op_id = list(map(lambda x: str(self.graph.reverse_adj_list[x][0][-1]), layer_input_tensor_id))
+                self.input_list[topo_index] = layer_input_op_id
+
+
+    def generate_edge_node_adj_list(self):
+        """
+        用于生成边op-节点tensor的邻接表
+        原正向邻接表：
+        0 (1, 0) 0号tensor与1号tensor用0号op连接 ->
+        0 (0, 1) 0号op连接的是0号tensor和1号tensor
+        """
+        edge_node_adj_list = dict()
+        for key in self.graph.adj_list.keys():
+            values = self.graph.adj_list[key]
+            for value in values:
+                if str(value[1]) in edge_node_adj_list:
+                    edge_node_adj_list[str(value[1])].append([str(key), str(value[0])])
+                else:
+                    edge_node_adj_list[str(value[1])] = [[str(key), str(value[0])]]
+        return edge_node_adj_list
+    
+    def generate_out_in_dst_edge(self):
+        """
+        用于生成利用上一节点输出，找下一节点输出的边
+        0号op连接0号tensor和1号tensor
+        1号op连接了1号tensor和2号tensor....
+        0   0, 1
+        1   1, 2
+        2   2, 3
+        5   3, 4
+        -> {1: 1, 2: 2, 3: 5}
+        使用了同一tensor作为输入输出的tensor，找到其对应的输出op
+        """
+        out_in_dst_edge = dict()
+        for key in self.edge_node_adj_list.keys():
+            values = self.edge_node_adj_list[key]
+            for value in values:
+                if str(value[0]) in out_in_dst_edge:
+                    out_in_dst_edge[str(value[0])].append(str(key))
+                else:
+                    out_in_dst_edge[str(value[0])] = [str(key)]
+        return out_in_dst_edge
+    
+    def generate_edge_adj_list(self):
+        """
+        生成op的邻接表
+        """
+        adj_set = set()
+        edge_adj_list = dict()
+        edges = self.edge_node_adj_list.keys()
+        for edge in edges:
+            edge_adj_list[str(edge)] = []
+        
+        for key in edges:
+            values = self.edge_node_adj_list[key]
+            for value in values:
+                if str(value[1]) in self.out_in_dst_edge:
+                    for op in self.out_in_dst_edge[value[1]]:
+                        if (str(key), str(op)) in adj_set:
+                            pass
+                        else:
+                            edge_adj_list[str(key)].append([str(op), str(value[1])])
+                            adj_set.add((str(key), str(op)))
+                else:
+                    pass
+        return edge_adj_list
+
+    def get_input_dict(self):
+        """
+        利用op的邻接表，生成op的输入list
+        """
+        input_dict = dict()
+        edges = self.edge_adj_list.keys()
+        edge_set = set(edges)
+        for edge in edges:
+            values = self.edge_adj_list[edge]
+            for value in values:
+                if value[0] in input_dict:
+                    input_dict[value[0]].append(edge)
+                else:
+                    input_dict[value[0]] = [edge]
+                    edge_set.remove(value[0])
+        if edge_set:
+            for empty_input_edge in edge_set:
+                input_dict[empty_input_edge] = []
+        return input_dict
+    
+    def generate_topological_edge(self):
+        """
+        利用邻接表和op的输入list，给op作拓扑排序
+        """
+        q = Queue()
+        in_degree = {}
+        edge_ids = self.edge_adj_list.keys()
+        for i in edge_ids:
+            in_degree[i] = 0
+        for u in edge_ids:
+            for v, _ in self.edge_adj_list[u]:
+                in_degree[v] += 1
+        for i in edge_ids:
+            if in_degree[i] == 0:
+                q.put(i)
+        order_list = []
+        while not q.empty():
+            u = q.get()
+            order_list.append(u)
+            for v, _ in self.edge_adj_list[u]:
+                in_degree[v] -= 1
+                if in_degree[v] == 0:
+                    q.put(v)
+
+        return order_list
+    
+    def generate_topo_index_dict(self):
+        """
+        根据op的id，获取其在拓扑序中的位置
+        """
+        res = dict()
+        for i, v in enumerate(self.topo_edge_list):
+            res[str(v)] = i
+        return res
+    
+    def get_input(self):
+        """
+        依据op拓扑序，获取每个op的输入op，并返回列表
+        """
+        input_list = []
+        input_dict = self.get_input_dict()
+        for edge in self.topo_edge_list:
+            input_list.append(input_dict[edge])
+        return input_list
+
+    def construct(self, x):
+        output_list = []
+        first = self.layer_attr[0](x)
+        output_list.append(first)
+        for i in range(1, self.edge_len):
+            if self.layer_type[i] == 4:
+                input_x = output_list[self.topo_index[self.input_list[i][0]]]
+                input_y = output_list[self.topo_index[self.input_list[i][1]]]
+                output_list.append(self.layer_attr[i](input_x, input_y))
+            elif self.layer_type[i] == 3:
+                inputs = []
+                for input_x in self.input_list[i]:
+                    inputs.append(output_list[self.topo_index[input_x]])
+                first_concat = self.concat((inputs[0], inputs[1]))
+                for j in range(2, len(inputs)):
+                    first_concat = self.concat((first_concat, inputs[j]))
+                output_list.append(first_concat)
+            else:
+                input_x = output_list[self.topo_index[self.input_list[i][0]]]
+                output_list.append(self.layer_attr[i](input_x))
+        return output_list[self.edge_len - 1]
 
 
 class JSONModel:
@@ -1064,21 +1135,21 @@ class JSONModel:
 
         self.data = data
 
-
+"""
 def graph_to_onnx(graph, onnx_model_path):
     import onnx
     # to do in the future using onnx ir
     onnx_out = graph.produce_onnx_model()
     onnx.save(onnx_out, onnx_model_path)
     return onnx_out
+"""
 
-
+"""
 def onnx_to_graph(onnx_model, input_shape):
-    # to do in the future using onnx ir
     graph = Graph(input_shape, False)
     graph.parsing_onnx_model(onnx_model)
     return graph
-
+"""
 
 def graph_to_json(graph, json_model_path):
     json_out = graph.produce_json_model()
@@ -1087,9 +1158,13 @@ def graph_to_json(graph, json_model_path):
     json_out = json.dumps(json_out)
     return json_out
 
-
+# 解析 json 文件，从json文件中得到各属性，赋给 graph 类
+# 使用 json.load() 接口，得到一个大字典
 def json_to_graph(json_model: str):
     json_model = json.loads(json_model)
+    #f = open(json_model,'r')
+    #json_model = json.load(f)
+
     # restore graph data from json data
     input_shape = tuple(json_model["input_shape"])
     node_list = list()
@@ -1122,11 +1197,14 @@ def json_to_graph(json_model: str):
         reverse_adj_list[int(k)] = [tuple(i) for i in v]
     graph.reverse_adj_list = reverse_adj_list
 
+    # 遍历列表，一项一项的得到 [ [0,[32,32,3]], [1,[32,32,3]] ]
     for item in json_model["node_list"]:
         new_node = Node(tuple(item[1]))
         node_id = item[0]
         node_list.append(new_node)
+        # 字典 {node 类: node id}
         node_to_id[new_node] = node_id
+        # 字典 {node id: node 类}
         id_to_node[node_id] = new_node
 
     for item in json_model["operation_history"]:

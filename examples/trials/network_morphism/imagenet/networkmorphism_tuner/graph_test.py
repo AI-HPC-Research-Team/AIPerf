@@ -1,17 +1,18 @@
 # Copyright (c) Microsoft Corporation.
-# Copyright (c) Peng Cheng Laboratory.
+# Copyright (c) Peng Cheng Laboratory
 # Licensed under the MIT license.
 
 import json
 from collections.abc import Iterable
 from copy import deepcopy, copy
 from queue import Queue
-import os
-os.environ['HDF5_USE_FILE_LOCKING']='FALSE'
+
 import numpy as np
 #import torch
+import mindspore.nn as nn
+from mindspore.ops import operations as P
 
-from nni.networkmorphism_tuner.layer_transformer import (
+from networkmorphism_tuner.layer_transformer import (
     add_noise,
     wider_bn,
     wider_next_conv,
@@ -22,7 +23,7 @@ from nni.networkmorphism_tuner.layer_transformer import (
     init_conv_weight,
     init_bn_weight,
 )
-from nni.networkmorphism_tuner.layers import (
+from networkmorphism_tuner.layers import (
     StubAdd,
     StubConcatenate,
     StubReLU,
@@ -30,16 +31,16 @@ from nni.networkmorphism_tuner.layers import (
     get_conv_class,
     is_layer,
     layer_width,
-    set_keras_weight_to_stub,
-    set_stub_weight_to_keras,
-    set_stub_weight_to_torch,
-    set_torch_weight_to_stub,
-    to_real_keras_layer,
-    to_real_tf_layer,
+    #set_keras_weight_to_stub,
+    #set_stub_weight_to_keras,
+    #set_stub_weight_to_torch,
+    #set_torch_weight_to_stub,
+    #to_real_keras_layer,
+    to_real_mindspore_layer,
     layer_description_extractor,
     layer_description_builder,
 )
-from nni.networkmorphism_tuner.utils import Constant
+from networkmorphism_tuner.utils import Constant
 
 
 class NetworkDescriptor:
@@ -407,8 +408,6 @@ class Graph:
 
         self._insert_new_layers([new_layer], input_id, output_id)
 
-        return output_id
-
     def to_wider_model(self, pre_layer_id, n_add):
         """Widen the last dimension of the output of the pre_layer.
         Args:
@@ -437,8 +436,6 @@ class Graph:
         new_layers[-1].input = self.node_list[temp_output_id]
         new_layers[-1].output = self.node_list[end_node_id]
         self._redirect_edge(start_node_id, end_node_id, new_node_id)
-        return temp_output_id
-        
 
     def _block_end_node(self, layer_id, block_size):
         ret = self.layer_id_to_output_node_ids[layer_id][0]
@@ -456,32 +453,6 @@ class Graph:
             layer_id: the convolutional layer ID.
         """
         return self._block_end_node(layer_id, Constant.CONV_BLOCK_DISTANCE)
-    
-    def _insert_conv_layer_chain2(self, start_node_id, end_node_id,filters_start, filters_end):
-        skip_output_id = start_node_id
-        num = len(self._get_pooling_layers(start_node_id, end_node_id))
-#       f = open("/root/trials/" + "/chain.log", "a+")
-#       f.write("num=" + str(num) + "\n")
-
-        if num >= 1:
-            new_layer = get_conv_class(self.n_dim)(filters_start, filters_end, 1, 2**num)
-            skip_output_id = self.add_layer(new_layer, skip_output_id)
-            skip_output_id = self.add_layer(self.batch_norm(self.node_list[skip_output_id].shape[-1]), skip_output_id)
-        elif filters_start != filters_end:
-            new_layer = get_conv_class(self.n_dim)(filters_start, filters_end, 1, 1)
-            skip_output_id = self.add_layer(new_layer, skip_output_id)
-            skip_output_id = self.add_layer(self.batch_norm(self.node_list[skip_output_id].shape[-1]), skip_output_id)
-        return skip_output_id
-
-    def _insert_conv_layer_chain3(self, start_node_id, end_node_id,filters_start):
-        skip_output_id = start_node_id
-        num = len(self._get_pooling_layers(start_node_id, end_node_id))
-        if num >= 1:
-            new_layer = get_conv_class(self.n_dim)(filters_start, filters_start, 1, 2**num)
-            skip_output_id = self.add_layer(new_layer, skip_output_id)
-            skip_output_id = self.add_layer(self.batch_norm(self.node_list[skip_output_id].shape[-1]), skip_output_id)
-        return skip_output_id
-    
 
     def to_add_skip_model(self, start_id, end_id):
         """Add a weighted add skip-connection from after start node to end node.
@@ -497,19 +468,16 @@ class Graph:
         pre_end_node_id = self.layer_id_to_input_node_ids[end_id][0]
         end_node_id = self.layer_id_to_output_node_ids[end_id][0]
 
-        skip_output_id = self._insert_conv_layer_chain2(
-            start_node_id, end_node_id, filters_start, filters_end)
-
-        # skip_output_id = self._insert_pooling_layer_chain(
-        #     start_node_id, end_node_id)
+        skip_output_id = self._insert_pooling_layer_chain(
+            start_node_id, end_node_id)
 
         # Add the conv layer
-        # new_conv_layer = get_conv_class(
-        #     self.n_dim)(
-        #         filters_start,
-        #         filters_end,
-        #         1)
-        # skip_output_id = self.add_layer(new_conv_layer, skip_output_id)
+        new_conv_layer = get_conv_class(
+            self.n_dim)(
+                filters_start,
+                filters_end,
+                1)
+        skip_output_id = self.add_layer(new_conv_layer, skip_output_id)
 
         # Add the add layer.
         add_input_node_id = self._add_node(
@@ -531,10 +499,10 @@ class Graph:
             filter_shape = (1,) * self.n_dim
             weights = np.zeros((filters_end, filters_start) + filter_shape)
             bias = np.zeros(filters_end)
-            # new_conv_layer.set_weights(
-            #     (add_noise(weights, np.array([0, 1])), add_noise(
-            #         bias, np.array([0, 1])))
-            # )
+            new_conv_layer.set_weights(
+                (add_noise(weights, np.array([0, 1])), add_noise(
+                    bias, np.array([0, 1])))
+            )
 
     def to_concat_skip_model(self, start_id, end_id):
         """Add a weighted add concatenate connection from after start node to end node.
@@ -551,11 +519,8 @@ class Graph:
         pre_end_node_id = self.layer_id_to_input_node_ids[end_id][0]
         end_node_id = self.layer_id_to_output_node_ids[end_id][0]
 
-        skip_output_id = self._insert_conv_layer_chain3(
-            start_node_id, end_node_id, filters_start)
-
-        # skip_output_id = self._insert_pooling_layer_chain(
-        #     start_node_id, end_node_id)
+        skip_output_id = self._insert_pooling_layer_chain(
+            start_node_id, end_node_id)
 
         concat_input_node_id = self._add_node(
             deepcopy(self.node_list[end_node_id]))
@@ -673,26 +638,26 @@ class Graph:
         for layer in self.layer_list:
             layer.weights = None
 
-    def produce_torch_model(self):
-        """Build a new Torch model based on the current graph."""
-        return TorchModel(self)
+    #def produce_torch_model(self):
+    #    """Build a new Torch model based on the current graph."""
+    #    return TorchModel(self)
 
-    def produce_keras_model(self):
-        """Build a new keras model based on the current graph."""
-        return KerasModel(self).model
+    #def produce_keras_model(self):
+    #    """Build a new keras model based on the current graph."""
+    #    return KerasModel(self).model
 
-    def produce_tf_model(self):
-        """Build a new tensorflow.keras model based on the current graph."""
-        return TfModel(self).model
+    #def produce_onnx_model(self):
+    #    """Build a new ONNX model based on the current graph."""
+    #    return ONNXModel(self)
 
-    def produce_onnx_model(self):
-        """Build a new ONNX model based on the current graph."""
-        return ONNXModel(self)
+    #def parsing_onnx_model(self, onnx_model):
+    #    '''to do in the future to use the onnx model
+    #    '''
+    #    return ONNXModel(onnx_model)
 
-    def parsing_onnx_model(self, onnx_model):
-        '''to do in the future to use the onnx model
-        '''
-        return ONNXModel(onnx_model)
+    def produce_MindSpore_model(self):
+        """Build a new MindSpore model based on the current graph."""
+        return MindSporeModel(self)
 
     def produce_json_model(self):
         """Build a new Json model based on the current graph."""
@@ -732,17 +697,7 @@ class Graph:
                 if v in main_chain and u in main_chain:
                     ret.append(layer_id)
         return ret
-    
-    def get_layers_id(self,output_id):
-        """Return a list of layer IDs in the main chain."""
-        main_chain = self.get_main_chain()
-        ret = []
-        for u in main_chain:
-            for v, layer_id in self.adj_list[u]:
-                if v in main_chain and u in main_chain and v==output_id:
-                    aaa=layer_id
-        return aaa
-    
+
     def _conv_layer_ids_in_order(self):
         return list(
             filter(
@@ -763,16 +718,6 @@ class Graph:
             if is_layer(layer, "Add") or is_layer(layer, "Concatenate"):
                 continue
             ret.append(layer_id)
-        return ret
-    
-    def deep_layer_ids2(self):
-        ret = []
-        for layer_id in self.get_main_chain_layers():
-            layer = self.layer_list[layer_id]
-            if is_layer(layer, "GlobalAveragePooling"):
-                break
-            if is_layer(layer, "ReLU"):
-                ret.append(layer_id)
         return ret
 
     def wide_layer_ids(self):
@@ -815,52 +760,51 @@ class Graph:
         return ret
 
 
-#class TorchModel(torch.nn.Module):
-#    """A neural network class using pytorch constructed from an instance of Graph."""
-#
-#    def __init__(self, graph):
-#        super(TorchModel, self).__init__()
-#        self.graph = graph
-#        self.layers = []
-#        for layer in graph.layer_list:
-#            self.layers.append(layer.to_real_layer())
-#        if graph.weighted:
-#            for index, layer in enumerate(self.layers):
-#                set_stub_weight_to_torch(self.graph.layer_list[index], layer)
-#        for index, layer in enumerate(self.layers):
-#            self.add_module(str(index), layer)
-#
-#    def forward(self, input_tensor):
-#        topo_node_list = self.graph.topological_order
-#        output_id = topo_node_list[-1]
-#        input_id = topo_node_list[0]
-#
-#        node_list = deepcopy(self.graph.node_list)
-#        node_list[input_id] = input_tensor
-#
-#        for v in topo_node_list:
-#            for u, layer_id in self.graph.reverse_adj_list[v]:
-#                layer = self.graph.layer_list[layer_id]
-#                torch_layer = self.layers[layer_id]
-#
-#                if isinstance(layer, (StubAdd, StubConcatenate)):
-#                    edge_input_tensor = list(
-#                        map(
-#                            lambda x: node_list[x],
-#                            self.graph.layer_id_to_input_node_ids[layer_id],
-#                        )
-#                    )
-#                else:
-#                    edge_input_tensor = node_list[u]
-#
-#                temp_tensor = torch_layer(edge_input_tensor)
-#                node_list[v] = temp_tensor
-#        return node_list[output_id]
-#
-#    def set_weight_to_graph(self):
-#        self.graph.weighted = True
-#        for index, layer in enumerate(self.layers):
-#            set_torch_weight_to_stub(layer, self.graph.layer_list[index])
+class TorchModel(torch.nn.Module):
+
+    def __init__(self, graph):
+        super(TorchModel, self).__init__()
+        self.graph = graph
+        self.layers = []
+        for layer in graph.layer_list:
+            self.layers.append(layer.to_real_layer())
+        if graph.weighted:
+            for index, layer in enumerate(self.layers):
+                set_stub_weight_to_torch(self.graph.layer_list[index], layer)
+        for index, layer in enumerate(self.layers):
+            self.add_module(str(index), layer)
+
+    def forward(self, input_tensor):
+        topo_node_list = self.graph.topological_order
+        output_id = topo_node_list[-1]
+        input_id = topo_node_list[0]
+
+        node_list = deepcopy(self.graph.node_list)
+        node_list[input_id] = input_tensor
+
+        for v in topo_node_list:
+            for u, layer_id in self.graph.reverse_adj_list[v]:
+                layer = self.graph.layer_list[layer_id]
+                torch_layer = self.layers[layer_id]
+
+                if isinstance(layer, (StubAdd, StubConcatenate)):
+                    edge_input_tensor = list(
+                        map(
+                            lambda x: node_list[x],
+                            self.graph.layer_id_to_input_node_ids[layer_id],
+                        )
+                    )
+                else:
+                    edge_input_tensor = node_list[u]
+
+                temp_tensor = torch_layer(edge_input_tensor)
+                node_list[v] = temp_tensor
+        return node_list[output_id]
+
+    def set_weight_to_graph(self):
+        self.graph.weighted = True
+        for index, layer in enumerate(self.layers):
+            set_torch_weight_to_stub(layer, self.graph.layer_list[index])
 
 
 class KerasModel:
@@ -918,32 +862,182 @@ class KerasModel:
         for index, layer in enumerate(self.layers):
             set_keras_weight_to_stub(layer, self.graph.layer_list[index])
 
-class TfModel:
+
+class ONNXModel:
     def __init__(self, graph):
-        import tensorflow
-        from tensorflow.python.keras import backend as K
-        import h5py
+        pass
+
+# 外部构造一个残差模块
+class ResidualBlock(nn.Cell):
+
+    def __init__(self,layer_list,block):
+        super(ResidualBlock, self).__init__()
+        module = []
+
+        for nodes in block[:-1]:
+
+            layers = []
+
+            for node_id in nodes:
+
+                layer = layer_list[node_id]
+                layers.append(to_real_mindspore_layer(layer))
+                module.append(nn.SequentialCell(layers)) 
+        end_node = layer_list(block[-1])
+        end_layer = to_real_mindspore_layer(end_node) 
+        module.append(end_layer)
+        self.res = nn.SequentialCell(module)    
+
+    def construct(self, x):
+
+        out = self.res(x)
+
+        return out
+
+class MindSporeModel(nn.Cell):
+    """A neural network class using pytorch constructed from an instance of Graph."""
+
+    def __init__(self, graph):
+        super(MindSporeModel, self).__init__()
         self.graph = graph
-        self.layers = []
-        for layer in graph.layer_list:
-            self.layers.append(to_real_tf_layer(layer))
-
-        # Construct the keras graph.
-        # Input
+        layers = []
         topo_node_list = self.graph.topological_order
-        output_id = topo_node_list[-1]
-        input_id = topo_node_list[0]
-        input_tensor = tensorflow.keras.layers.Input(
-            shape=graph.node_list[input_id].shape)
+        input_ids = self.graph.layer_id_to_input_node_ids
 
-        node_list = deepcopy(self.graph.node_list)
-        node_list[input_id] = input_tensor
+        max_id = max(topo_node_list)
+        new_topo_node_list = []
+        # 存放输入编号相同的节点
+        repeat_nodes = []
+        repeat_node = []
+        # 单独构造模块的节点
+        #make_layer_node = []
 
-        # Output
+        # 找出输入重复的节点，两个输入重复的节点组成 list，放在 repeat_nodes 中
+        # 可能有多组输入重复的节点，都放在 repeat_nodes
+        # multi path 未考虑！！！
+        for i,ids in enumerate(topo_node_list):   # 已验证
+            if i == 0:
+                target = ids
+                continue
+            if input_ids[i] == target:
+                repeat_node.append(target)
+                repeat_node.append(ids)
+                repeat_nodes.append(repeat_node)
+            else:
+                repeat_node = []
+                target = ids 
+        
+        make_layer_nodes, new_topo_node_list = self.find_make_layer(topo_node_list,repeat_nodes)
+
+        for node_id in new_topo_node_list:
+            for i in repeat_nodes:
+                if node_id in i:
+                    # skip block 构建
+                    # 改为输入一个重复输入节点，找到一个skip 层去构建
+                    # make_layer_nodes, new_topo_node_list = self.find_make_layer(topo_node_list,repeat_nodes)
+                    # construct_make_layer(make_layer_nodes,node_in,node_out) 也改为输入一个去构建 skip 层
+                    # 得到 block，输入 ResidualBlock 类，去构建skip层   
+            layer = graph.layer_list[node_id]
+            #print(layer)
+            #print(to_real_mindspore_layer(layer))
+            layers.append(to_real_mindspore_layer(layer))
+            #print("to_real_mindspore_layer(layer) ",to_real_mindspore_layer(layer))
+        self.cell_ls = nn.CellList(layers)
+        self.print = P.Print()
+
+
+    # 找到需要单独构建模块的节点编号
+    def find_make_layer(src_node_list,repeat_nodes):
+        make_layer_node = []
+        make_layer_nodes = []
+
+        #for i,t_node in enumerate(src_node_list):
+    
+        for r_node_list in repeat_nodes:
+            i = src_node_list.index(r_node_list[0]) 
+            
+            make_layer_node.append(src_node_list[i])
+            while True:
+                make_layer_node.append(src_node_list[i+1])
+                if self.graph.layer_list[src_node_list[i+1]] != "concat": # 改为判断输入有两个
+                    i = i + 1
+                else:
+                    # input concat
+                    #make_layer_node.append(src_node_list[i+1])
+                    make_layer_nodes.append(make_layer_node)
+                    make_layer_node = []
+                    break
+            else:
+                new_topo_node_list.append(t_node)
+        return make_layer_nodes,new_topo_node_list 
+
+    # node_in  node_out 节点输入输出编号
+    def construct_make_layer(make_layer_nodes,node_in,node_out):
+
+        skiplayers = []
+
+        for layer_nodes in make_layer_nodes:
+
+            skiplayer = []
+            layer1 = []
+            node = layer_nodes[0]
+            layer1.append(node)
+
+            while True:
+            
+                out = node_out[node]
+                if out not in node_in:
+                    break 
+                ids = node_in.index(out)
+                layer1.append(ids) 
+                node = ids
+
+            layer2 = []
+            node = layer_nodes[1]
+            layer2.append(node)
+
+            while True:
+                
+                out = node_out[node]
+                if out not in node_in:
+                    break
+                ids = node_in.index(out)
+                layer2.append(ids) 
+                node = ids
+            skiplayer.append(layer1)
+            skiplayer.append(layer2)
+            skiplayer.append(layer_nodes[-1])
+            skiplayers.append(skiplayer)
+
+        return skiplayers
+
+
+
+
+
+
+
+        for node_id in new_topo_node_list:
+            layer = graph.layer_list[node_id]
+            #print(layer)
+            #print(to_real_mindspore_layer(layer))
+            layers.append(to_real_mindspore_layer(layer))
+            #print("to_real_mindspore_layer(layer) ",to_real_mindspore_layer(layer))
+        self.cell_ls = nn.CellList(layers)
+        self.print = P.Print()
+
+
+    def construct(self, input_tensor):
+        self.print("input construct!!!!!!!!!!!!")
+
+        topo_node_list = self.graph.topological_order
+        
+
+
         for v in topo_node_list:
             for u, layer_id in self.graph.reverse_adj_list[v]:
                 layer = self.graph.layer_list[layer_id]
-                tf_layer = self.layers[layer_id]
+                mindspore_layer = self.cell_ls[layer_id]
 
                 if isinstance(layer, (StubAdd, StubConcatenate)):
                     edge_input_tensor = list(
@@ -954,69 +1048,13 @@ class TfModel:
                     )
                 else:
                     edge_input_tensor = node_list[u]
+                #self.print(edge_input_tensor)
 
-                temp_tensor = tf_layer(edge_input_tensor)
+                temp_tensor = mindspore_layer(edge_input_tensor)
+                #print("temp_tensor ",temp_tensor)
                 node_list[v] = temp_tensor
+        return node_list[output_id]
 
-        output_tensor = node_list[output_id]
-        output_tensor = tensorflow.keras.layers.Activation("softmax", name="activation_add")(
-            output_tensor
-        )
-        self.model = tensorflow.keras.models.Model(
-            inputs=input_tensor, outputs=output_tensor)
-
-        self.count = 0
-        self.loadh5 = 0
-        try:
-            with h5py.File("/userhome/resnet50_weights_tf_dim_ordering_tf_kernels.h5", 'r') as f:
-                layer_names = self.load_attributes_from_hdf5_group(f, 'layer_names')
-                filtered_layer_names = []
-                for name in layer_names:
-                    g = f[name]
-                    weight_names = self.load_attributes_from_hdf5_group(g, 'weight_names')
-                    if weight_names:
-                        filtered_layer_names.append(name)
-                layer_names = filtered_layer_names  # 107 layers
-                try:
-                    for k, name in enumerate(layer_names):
-                        g = f[name]
-                        weight_names = self.load_attributes_from_hdf5_group(g, 'weight_names')
-                        weight_values = [np.asarray(g[weight_name]) for weight_name in weight_names]
-                        while not self.legacy_weights():
-                            self.count += 1
-                        symbolic_weights = self.legacy_weights()
-                        weight_value_tuples = zip(symbolic_weights, weight_values)
-                        try:
-                            K.batch_set_value(weight_value_tuples)
-                            self.loadh5 += 1
-                        except Exception as E:
-                            continue 
-                        self.count += 1
-                except Exception as E:
-                    self.loadh5 += 0
-            print("############## Loading initial weights for " + str(self.loadh5) + " layers.")
-        except Exception as E:
-            print(E)
-
-    def legacy_weights(self):
-        return self.layers[self.count].trainable_weights + self.layers[self.count].non_trainable_weights
-
-    def load_attributes_from_hdf5_group(self, group, name):
-        if name in group.attrs:
-            data = [n.decode('utf8') for n in group.attrs[name]]
-        else:
-            data = []
-            chunk_id = 0
-            while '%s%d' % (name, chunk_id) in group.attrs:
-                data.extend(
-                    [n.decode('utf8') for n in group.attrs['%s%d' % (name, chunk_id)]])
-                chunk_id += 1
-        return data
-
-class ONNXModel:
-    # to do in the future using onnx ir
-    def __init__(self, graph):
-        pass
 
 
 class JSONModel:
@@ -1064,21 +1102,21 @@ class JSONModel:
 
         self.data = data
 
-
+"""
 def graph_to_onnx(graph, onnx_model_path):
     import onnx
     # to do in the future using onnx ir
     onnx_out = graph.produce_onnx_model()
     onnx.save(onnx_out, onnx_model_path)
     return onnx_out
+"""
 
-
+"""
 def onnx_to_graph(onnx_model, input_shape):
-    # to do in the future using onnx ir
     graph = Graph(input_shape, False)
     graph.parsing_onnx_model(onnx_model)
     return graph
-
+"""
 
 def graph_to_json(graph, json_model_path):
     json_out = graph.produce_json_model()
@@ -1089,7 +1127,9 @@ def graph_to_json(graph, json_model_path):
 
 
 def json_to_graph(json_model: str):
-    json_model = json.loads(json_model)
+    #json_model = json.loads(json_model)
+    f = open(json_model,'r')
+    json_model = json.load(f)
     # restore graph data from json data
     input_shape = tuple(json_model["input_shape"])
     node_list = list()

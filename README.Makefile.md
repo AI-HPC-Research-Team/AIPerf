@@ -1,34 +1,32 @@
-| This is the original README file from Microsoft NNI team. |
-| :-------------: |
 # Makefile and Installation Setup
 
-NNI uses GNU make for building and installing.
+AAHuses GNU make for building and installing.
 
 The `Makefile` offers standard targets `build`, `install`, and `uninstall`, as well as alternative installation targets for different setup:
 
 * `easy-install`: target for non-expert users, which handles everything automatically;
 * `dev-easy-install`: target for developer users, which handles everything automatically;
-* `install`: target for NNI normal users, which installs NNI by copying files;
-* `dev-install`: target for NNI contributors, which installs NNI as symlinks instead of copying files;
+* `install`: target for AAHnormal users, which installs AAHby copying files;
+* `dev-install`: target for AAHcontributors, which installs AAHas symlinks instead of copying files;
 * `pip-install`: target in favor of `setup.py`;
 
 The targets will be detailed later.
 
 ## Dependencies
 
-NNI requires at least Node.js, Yarn, and pip to build, while TypeScript is also recommended.
+AAHrequires at least Node.js, Yarn, and pip to build, while TypeScript is also recommended.
 
-NNI requires Node.js, and all dependency libraries to run.
+AAHrequires Node.js, and all dependency libraries to run.
 Required Node.js libraries (including TypeScript) can be installed by Yarn, and required Python libraries can be installed by setuptools or PIP.
 
-For NNI *users*, `make install-dependencies` can be used to install Node.js and Yarn.
-This will install Node.js to NNI's installation directory, and install Yarn to `/tmp/nni-yarn`.
+For AAH*users*, `make install-dependencies` can be used to install Node.js and Yarn.
+This will install Node.js to AAH's installation directory, and install Yarn to `/tmp/nni-yarn`.
 This target requires wget to work.
 
-For NNI *developers*, it is recommended to install Node.js and Yarn manually.
+For AAH*developers*, it is recommended to install Node.js and Yarn manually.
 See their official sites for installation guide.
 
-## Building NNI
+## Building AAH
 
 Simply run `make` when dependencies are ready.
 
@@ -36,7 +34,7 @@ Simply run `make` when dependencies are ready.
 
 ### Directory Hierarchy
 
-The main parts of NNI project consist of two Node.js modules (`nni_manager`, `webui`) and two Python packages (`nni`, `nnictl`).
+The main parts of AAHproject consist of two Node.js modules (`nni_manager`, `webui`) and two Python packages (`nni`, `nnictl`).
 
 By default the Node.js modules are installed to `/usr/share/nni` for all users or installed to `~/.local/nni` for current user.
 
@@ -45,7 +43,7 @@ When install as non-priviledged user and virtualenv is not detected, `--user` fl
 
 In addition, `nnictl` offers a bash completion scripts, which will be installed to `/usr/share/bash-completion/completions` or `~/.bash_completion.d`.
 
-In some configuration, NNI will also install Node.js to `/usr/share/nni`.
+In some configuration, AAHwill also install Node.js to `/usr/share/nni`.
 
 All directories mentioned above are configurable. See next section for details.
 
@@ -75,11 +73,11 @@ The workflow of each installation targets is listed below:
 
 | Target                   | Workflow                                                                   |
 |--------------------------|----------------------------------------------------------------------------|
-| `easy-install`           | Install dependencies, build, install NNI, and edit `~/.bashrc`             |
-| `dev-easy-install`       | Install dependencies, build, install NNI as symlinks, and edit `~/.bashrc` |
-| `install`                | Install Python packages, Node.js modules, NNI scripts, and examples        |
+| `easy-install`           | Install dependencies, build, install AAH, and edit `~/.bashrc`             |
+| `dev-easy-install`       | Install dependencies, build, install AAHas symlinks, and edit `~/.bashrc` |
+| `install`                | Install Python packages, Node.js modules, AAHscripts, and examples        |
 | `dev-install`            | Install Python and Node.js modules as symlinks, then install scripts       |
-| `pip-install`            | Install dependencies, build, install NNI excluding Python packages         |
+| `pip-install`            | Install dependencies, build, install AAHexcluding Python packages         |
 
 ## TODO
 

@@ -75,13 +75,11 @@ def record_device_info():
         write_file(log_path + '/cpu_info.csv',cpu)
         mem = os.popen("export TERM=linux && free |grep -E '内存|Mem:' |awk '{print $3}' ").readline().strip()
         write_file(log_path + '/mem_info.csv',str(int(mem)/1024)) #M
-        gpu = os.popen("gpustat|awk '{print $6,$9}'").readlines()
-        for index,i in enumerate(gpu[1:]):
-            file_name = str(index) + '.csv'
-            #print(file_name)
-            content = str(','.join((i.strip().split(' ')[0],i.strip().split(' ')[1])))
-            #print(content)
-            write_file(log_path + '/' + file_name,content)
+        #gpu = os.popen("nvidia-smi  dmon -c 1 -s u|awk '{if($1 ~ /^[0-9]+$/){print $1,$2,$3}}'").readlines()
+        #for i in gpu:
+        #    file_name = str(i.strip().split(' ')[0]) + '.csv'
+        #    content = str(','.join((i.strip().split(' ')[1],i.strip().split(' ')[2])))
+        #    write_file(log_path + '/' + file_name,content)
         time.sleep(dev_interval - 2)
 
 if __name__ == "__main__":

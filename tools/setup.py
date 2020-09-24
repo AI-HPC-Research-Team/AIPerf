@@ -19,11 +19,11 @@ setuptools.setup(
         'colorama'
     ],
 
-    author = 'Microsoft NNI Team',
-    author_email = 'nni@microsoft.com',
-    description = 'NNI control for Neural Network Intelligence project',
+    author = 'Pengcheng Laboratory AAH Team',
+    author_email = 'renzhx@pcl.ac.cn',
+    description = 'NNI control for Automated Machine Learning As An AI HPC Benchmark',
     license = 'MIT',
-    url = 'https://github.com/Microsoft/nni',
+    url = 'https://github.com/pcl-ai-public/AAH',
     entry_points = {
         'console_scripts' : [
             'nnictl = nni_cmd.nnictl:parse_args'

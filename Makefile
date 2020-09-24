@@ -50,8 +50,8 @@ NASUI_PKG_FOLDER ?= $(ROOT_FOLDER)/nni/nasui
 ## Dependency information
 NNI_DEPENDENCY_FOLDER = /tmp/$(USER)
 $(shell mkdir -p $(NNI_DEPENDENCY_FOLDER))
-NNI_NODE_TARBALL ?= $(NNI_DEPENDENCY_FOLDER)/nni-node-$(OS_SPEC)-x64.tar.xz
-NNI_NODE_FOLDER = $(NNI_DEPENDENCY_FOLDER)/nni-node-$(OS_SPEC)-x64
+NNI_NODE_TARBALL ?= $(NNI_DEPENDENCY_FOLDER)/nni-node-$(OS_SPEC)-arm64.tar.xz
+NNI_NODE_FOLDER = $(NNI_DEPENDENCY_FOLDER)/nni-node-$(OS_SPEC)-arm64
 NNI_NODE ?= $(BIN_FOLDER)/node
 NNI_NPM ?= $(BIN_FOLDER)/npm
 NNI_YARN_TARBALL ?= $(NNI_DEPENDENCY_FOLDER)/nni-yarn.tar.gz
@@ -142,7 +142,7 @@ clean:
 
 $(NNI_NODE_TARBALL):
 	#$(_INFO) Downloading Node.js $(_END)
-	wget https://aka.ms/nni/nodejs-download/$(OS_SPEC) -O $(NNI_NODE_TARBALL)
+	wget https://nodejs.org/download/release/v10.13.0/node-v10.13.0-linux-arm64.tar.xz -O $(NNI_NODE_TARBALL)
 
 $(NNI_YARN_TARBALL):
 	#$(_INFO) Downloading Yarn $(_END)

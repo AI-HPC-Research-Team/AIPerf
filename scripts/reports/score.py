@@ -22,6 +22,92 @@ import time
 import datetime
 import math
 import profiler
+import numpy as np
+
+# 从指定位置的 trial.log 文件中解析一个 train 的信息
+def get_one_train_info(lines, start, end):
+    '''
+    :param lines:
+    :param start:
+    :param end:
+    :return:
+    '''
+    train_info = dict()
+    eval_info = dict()
+
+    # 遍历每一行
+    for line in lines[start:end]:
+        if 'PRINT' not in line:
+            continue
+        # 获取每一行的打印时间
+        print_time, print_info = line.split('PRINT')
+        print_time = print_time.strip().strip('[').strip(']')
+        print_info = print_info.strip()
+        print_time = conversion_time(print_time)
+
+        # 如果是训练信息，则提取：epoch训练时间，step训练时间，loss
+        if 'train time' in print_info:
+            epoch_num, epoch_time, step_time, loss = print_info.split(', ')
+
+            epoch_num = int(epoch_num.split('Epoch')[-1].strip().split('/')[0])
+            epoch_time = float(epoch_time.split('train time:')[-1].strip()) / 1000
+            step_time = float(step_time.split('per step time:')[-1].strip()) / 1000
+            loss = float(loss.split('loss:')[-1].strip())
+
+            if epoch_num in list(train_info.keys()):
+                train_info[epoch_num]['epoch_time'].append(epoch_time)
+                train_info[epoch_num]['step_time'].append(step_time)
+                train_info[epoch_num]['loss'].append(loss)
+            else:
+                train_info[epoch_num] = dict()
+                train_info[epoch_num]['epoch_time'] = [epoch_time]
+                train_info[epoch_num]['step_time'] = [step_time]
+                train_info[epoch_num]['loss'] = [loss]
+
+        # 如果是验证信息，则提取：验证精度，验证时间，验证结束时间
+        elif 'EvalTime' in print_info:
+            epoch_num, eval_acc, eval_time = print_info.split(', ')
+
+            epoch_num = int(epoch_num.split('Epoch')[-1].strip().split('/')[0])
+            eval_acc = float(eval_acc.split('EvalAcc:')[-1].strip())
+            eval_time = float(eval_time.strip('s').split('EvalTime')[-1].strip())
+
+            if epoch_num in list(eval_info.keys()):
+                eval_info[epoch_num]['eval_acc'].append(eval_acc)
+                eval_info[epoch_num]['eval_time'].append(eval_time)
+                eval_info[epoch_num]['eval_end_time'].append(print_time)
+                eval_info[epoch_num]['eval_end_time'].append(print_time)
+            else:
+                eval_info[epoch_num] = dict()
+                eval_info[epoch_num]['eval_acc'] = [eval_acc]
+                eval_info[epoch_num]['eval_time'] = [eval_time]
+                eval_info[epoch_num]['eval_end_time'] = [print_time]
+    assert len(list(train_info.keys())) > 0, 'Train info is empty! Check param "train_num".'
+    epoch_size = max(list(train_info.keys()))
+
+    epoch_time_list = []
+    step_time_list = []
+    loss_list = []
+    eval_acc_list = []
+    eval_time_list = []
+    eval_end_time_list = []
+
+    # 汇总所有线程信息，得到每一个epoch的训练、验证信息
+    for i in range(epoch_size):
+        epoch_time_list.append(max(train_info[i + 1]['epoch_time']))
+        step_time_list.append(max(train_info[i + 1]['step_time']))
+        loss_list.append(np.mean(train_info[i + 1]['loss']))
+        eval_acc_list.append(np.mean(eval_info[i + 1]['eval_acc']))
+        eval_time_list.append(max(eval_info[i + 1]['eval_time']))
+        eval_end_time_list.append(max(eval_info[i + 1]['eval_end_time']))
+
+    return {'epoch_train_time': epoch_time_list,
+            'step_train_time': step_time_list,
+            'loss': loss_list,
+            'eval_acc': eval_acc_list,
+            'eval_time': eval_time_list,
+            'eval_end_time': eval_end_time_list}
+
 
 def find_all_trials(nnidir, expid, trial_id_list):
     experiment_data = {}
@@ -34,24 +120,34 @@ def find_all_trials(nnidir, expid, trial_id_list):
         filepath = os.path.join(filepath, 'trial.log')
         if not os.path.exists(filepath):
             continue
-        f = open(filepath)
-        f_list = f.readlines()
-        f.close()
-        count = 0
-        for index in range(len(f_list)):
-            if "Epoch" in f_list[index]:
-                count = index
-                continue
-            elif ' val_acc' in f_list[index]:
-                if "".join(re.findall('Epoch (.*?)/',f_list[count],re.S)) == '1':
-                    hp_list.append([])
-                hp_list[-1].extend([[int("".join(re.findall('Epoch (.*?)/',f_list[count],re.S))), conversion_time("".join(re.findall('\[(.*?)\]',f_list[index],re.S))),float("".join(re.findall(' val_acc.*?: (.*?)(?:\s|$)',f_list[index],re.S)))]])
-                continue
-            elif not f_list[index].strip():
-                continue
-        if hp_list:
-            experiment_data[trial_id] = hp_list
+
+        # 获取每一个 train 的起始终止位置（一个 trial.log 可能包含两次 train 过程）
+        lines = []
+        info_end_list = [0]
+        with open(filepath, 'r') as f:
+            for index, line in enumerate(f.readlines()):
+                lines.append(line)
+                if 'HPO-' in line:
+                    info_end_list.append(index)
+
+        if len(lines)-info_end_list[-1] > 10:
+            info_end_list.append(-1)
+        # 依次解析每一个 train 的信息
+        for start, end in zip(info_end_list[:-1], info_end_list[1:]):
+            info = get_one_train_info(lines, start, end)
+            eval_end_time = info['eval_end_time']
+            eval_acc = info['eval_acc']
+
+            res = []
+            for index,(time_, acc_) in enumerate(zip(eval_end_time, eval_acc)):
+                res.append([index+1, time_, acc_])
+            hp_list.append(res)
+            #print(trial_id, np.array(res).shape)
+
+        experiment_data[trial_id] = hp_list
+
     return experiment_data
+
 
 def find_max_acc(stop_time, experiment_data):
     #print(trial)
@@ -113,18 +209,23 @@ def conversion_time(string):
         mytime = datetime_obj.timestamp()     
     return mytime
 
+
 def find_startime(trial_id_list, t, experiment_path):
     trial_id = trial_id_list[0]
-        #读取第一个trial 0号超参记录的开始时间
+
+    # 读取第一个trial 0号超参记录的开始时间
     if os.path.isfile(experiment_path + "/hyperparameter_epoch/" + trial_id + '/0.json'):
         with open(experiment_path + "/hyperparameter_epoch/" + trial_id + '/0.json') as hyperparameter_json:
             hyperparameter = json.load(hyperparameter_json)
-    start_time = time.mktime(time.strptime( hyperparameter['start_date'], "%m/%d/%Y, %H:%M:%S"))
-    #将开始时间加上指定的结束时长，得到结束时间，转换成时间戳
+    start_time = time.mktime(time.strptime(hyperparameter['start_date'], "%m/%d/%Y, %H:%M:%S"))
+
+    # 将开始时间加上指定的结束时长，得到结束时间，转换成时间戳
     datetime_struct = datetime.datetime.fromtimestamp(start_time)
     datetime_obj = (datetime_struct + datetime.timedelta(hours=t))
     stop_time = datetime_obj.timestamp()
+
     return start_time,stop_time
+
 
 def process_log(trial_id_list, experiment_data, dur, experiment_path):
     results = {}
@@ -132,18 +233,22 @@ def process_log(trial_id_list, experiment_data, dur, experiment_path):
     results['PFLOPS'] = []
     results['Error'] = []
     results['Score'] = []
+
     flops_info = profiler.profiler(experiment_path)
-    for index in range(1,int(dur)+2):
+
+    for index in range(1, int(dur)+2):
         start_time,stop_time = find_startime(trial_id_list, index, experiment_path)
+
         # 获取实验过程总数据
         lastest_time, max_acc, result_dict = find_max_acc(stop_time, experiment_data)
         # print(result_dict)
+
         # 开始计算
         run_sec = lastest_time - start_time
         # print(datetime.datetime.fromtimestamp(start_time),'\t',datetime.datetime.fromtimestamp(stop_time),'\t',stop_time-start_time)
 
-        total_FLOPs=0
-        faild_trial=[]
+        total_FLOPs = 0
+        faild_trial = []
         for i in range(len(flops_info['trialid'])):
             trial_id = flops_info['trialid'][i]
             if trial_id in result_dict:
@@ -172,16 +277,19 @@ def cal_report_results(expid):
     nnidir = os.path.join(os.environ["HOME"], "nni/experiments/")
     mountdir = os.path.join(os.environ["HOME"], "mountdir/nni/experiments/")
     experiment_path = os.path.join(mountdir, expid)
+
     #获取sequence_id和trial_id，根据sequence_id从大到小排序
     for trials in os.listdir(os.path.join(nnidir, expid,'trials')):
         with open(os.path.join(nnidir, expid,'trials',trials,'parameter.cfg'), "r") as file_read:
             json_read = json.load(file_read)
             parameter_id = json_read['parameter_id']
             id_dict[parameter_id] = trials
+
     #根据 sequence_id 由大到小排序 id_dict = {sequence_id : trial_id}
     id_dict = sorted(zip(id_dict.keys(),id_dict.values()))
     id_dict = dict(id_dict)
     trial_id_list = list(id_dict.values())
+
 
     experiment_data = find_all_trials(nnidir, expid, trial_id_list)
     start_time = experiment_data[trial_id_list[0]][0][0][1]

@@ -1,5 +1,4 @@
 # Copyright (c) Microsoft Corporation
-# Copyright (c) Peng Cheng Laboratory
 # All rights reserved.
 #
 # MIT License
@@ -21,8 +20,8 @@ import numpy as np
 import os
 import psutil
 import hashlib
-import time
-from tensorflow.python.client import device_lib as _device_lib
+import time, datetime
+#from tensorflow.python.client import device_lib as _device_lib
 from numpy import log2
 from scipy.optimize import curve_fit
 
@@ -169,14 +168,14 @@ def predict_acc(tid, epoch_x, acc_y, epoch=75, saveflag=False, totaly=[]):
         x = np.array(x)
         y = a * log2(x + b) + c
         return y
-
+    
     epoch_x = list(epoch_x)
     acc_y = list(acc_y)
     
     epoch_x.append(120)
-    acc_y.append(0.75)
+    acc_y.append(0.72)
     
-    popt, pcov = curve_fit(logfun, epoch_x, acc_y, maxfev=100000)
+    popt, pcov = curve_fit(logfun, epoch_x, acc_y, maxfev=10000)
 
     acc_y_true_numformat = np.array(acc_y, dtype=float)
     acc_y_predict = logfun(epoch_x, popt[0], popt[1], popt[2])
@@ -186,8 +185,8 @@ def predict_acc(tid, epoch_x, acc_y, epoch=75, saveflag=False, totaly=[]):
     acc_epoch_target = logfun(epoch, popt[0], popt[1], popt[2])
 
     acc_epoch_target_minus_error = acc_epoch_target - 2 * error
-    if acc_epoch_target_minus_error < max(acc_y[:-1]) or acc_epoch_target_minus_error > 1:
-        acc_epoch_target = max(acc_y[:-1])
+    if acc_epoch_target_minus_error < max(acc_y) or acc_epoch_target_minus_error > 1:
+        acc_epoch_target = max(acc_y)
         labletxt = "x-%d,no-pred,wpred-%5.3f,max-%5.3f,err-%5.3f,l-%s" % (
             epoch, acc_epoch_target_minus_error, acc_epoch_target, error, str(len(acc_y)))
     else:
@@ -197,6 +196,116 @@ def predict_acc(tid, epoch_x, acc_y, epoch=75, saveflag=False, totaly=[]):
     print("Predicted_val_acc:"+str(acc_epoch_target))
     return acc_epoch_target
 
+
+def conversion_time(string):
+    '''
+    转换时间,将每个trial下的trial.log记录的时间格式转换成时间戳，需要将AM和PM进行区分
+    string字符串样式: "06/02/2020, 09:12:50 PM"
+    '''
+    if string.split()[1].split(':')[0] == '12':
+        # trial.log记录的时间在12这个时间点与大众认知的时间不一样，直接换成时间戳会出问题，做一下处理
+        if string.split()[2] == 'AM':
+            date = string.split()[0]
+            chj_time = ':'.join(['00', string.split()[1].split(':')[1], string.split()[1].split(':')[2]])
+            time_system = string.split()[2]
+            string = " ".join([date, chj_time, time_system])
+        elif string.split()[2] == 'PM':
+            string = string.split()[0] + ' ' + string.split()[1] + ' AM'
+
+    # 正常情况下string坐下切分可直接转换成时间戳
+    mytime = string.split()[0][:-1] + ' ' + string.split()[1]
+    mytime = time.mktime(time.strptime(mytime, "%m/%d/%Y %H:%M:%S"))
+
+    # 如果时间是PM还需要加上12小时, 再转换成时间戳
+    if string.split()[2] == 'PM':
+        datetime_struct = datetime.datetime.fromtimestamp(mytime)
+        datetime_obj = (datetime_struct + datetime.timedelta(hours=12))
+        mytime = datetime_obj.timestamp()
+    return mytime
+
+
+# 从指定位置的 trial.log 文件中解析一个 train 的信息
+def get_one_train_info(lines, start, end):
+    '''
+    :param lines:
+    :param start:
+    :param end:
+    :return:
+    '''
+    train_info = dict()
+    eval_info = dict()
+
+    # 遍历每一行
+    for line in lines[start:end]:
+        if 'PRINT' not in line:
+            continue
+        # 获取每一行的打印时间
+        print_time, print_info = line.split('PRINT')
+        print_time = print_time.strip().strip('[').strip(']')
+        print_info = print_info.strip()
+        print_time = conversion_time(print_time)
+
+        # 如果是训练信息，则提取：epoch训练时间，step训练时间，loss
+        if 'train time' in print_info:
+            epoch_num, epoch_time, step_time, loss = print_info.split(', ')
+
+            epoch_num = int(epoch_num.split('Epoch')[-1].strip().split('/')[0])
+            epoch_time = float(epoch_time.split('train time:')[-1].strip()) / 1000
+            step_time = float(step_time.split('per step time:')[-1].strip()) / 1000
+            loss = float(loss.split('loss:')[-1].strip())
+
+            if epoch_num in list(train_info.keys()):
+                train_info[epoch_num]['epoch_time'].append(epoch_time)
+                train_info[epoch_num]['step_time'].append(step_time)
+                train_info[epoch_num]['loss'].append(loss)
+            else:
+                train_info[epoch_num] = dict()
+                train_info[epoch_num]['epoch_time'] = [epoch_time]
+                train_info[epoch_num]['step_time'] = [step_time]
+                train_info[epoch_num]['loss'] = [loss]
+
+        # 如果是验证信息，则提取：验证精度，验证时间，验证结束时间
+        elif 'EvalTime' in print_info:
+            epoch_num, eval_acc, eval_time = print_info.split(', ')
+
+            epoch_num = int(epoch_num.split('Epoch')[-1].strip().split('/')[0])
+            eval_acc = float(eval_acc.split('EvalAcc:')[-1].strip())
+            eval_time = float(eval_time.strip('s').split('EvalTime')[-1].strip())
+
+            if epoch_num in list(eval_info.keys()):
+                eval_info[epoch_num]['eval_acc'].append(eval_acc)
+                eval_info[epoch_num]['eval_time'].append(eval_time)
+                eval_info[epoch_num]['eval_end_time'].append(print_time)
+            else:
+                eval_info[epoch_num] = dict()
+                eval_info[epoch_num]['eval_acc'] = [eval_acc]
+                eval_info[epoch_num]['eval_time'] = [eval_time]
+                eval_info[epoch_num]['eval_end_time'] = [print_time]
+    assert len(list(train_info.keys())) > 0, 'Train info is empty! Check param "train_num".'
+    epoch_size = max(list(train_info.keys()))
+
+    epoch_time_list = []
+    step_time_list = []
+    loss_list = []
+    eval_acc_list = []
+    eval_time_list = []
+    eval_end_time_list = []
+
+    # 汇总所有线程信息，得到每一个epoch的训练、验证信息
+    for i in range(epoch_size):
+        epoch_time_list.append(max(train_info[i + 1]['epoch_time']))
+        step_time_list.append(max(train_info[i + 1]['step_time']))
+        loss_list.append(np.mean(train_info[i + 1]['loss']))
+        eval_acc_list.append(np.mean(eval_info[i + 1]['eval_acc']))
+        eval_time_list.append(max(eval_info[i + 1]['eval_time']))
+        eval_end_time_list.append(max(eval_info[i + 1]['eval_end_time']))
+
+    return {'epoch_train_time': epoch_time_list,
+            'step_train_time': step_time_list,
+            'loss': loss_list,
+            'eval_acc': eval_acc_list,
+            'eval_time': eval_time_list,
+            'eval_end_time': eval_end_time_list}
 
 def MinGpuMem():
     gpu_mem_list = os.popen("nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits").readlines()

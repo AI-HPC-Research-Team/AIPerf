@@ -1,5 +1,5 @@
 # Copyright (c) Microsoft Corporation.
-# Copyright (c) Peng Cheng Laboratory.
+# Copyright (c) Peng Cheng Laboratory
 # Licensed under the MIT license.
 
 from abc import abstractmethod
@@ -8,112 +8,44 @@ from collections.abc import Iterable
 #import torch
 #from torch import nn
 #from torch.nn import functional
-from nni.networkmorphism_tuner.utils import Constant
-#import tensorflow as tf
+from networkmorphism_tuner.utils import Constant
 
-#class AvgPool(nn.Module):
-#    """
-#    AvgPool Module.
-#    """
-#
-#    def __init__(self):
-#        super().__init__()
-#
-#    @abstractmethod
-#    def forward(self, input_tensor):
-#        pass
-#
-#
-#class GlobalAvgPool1d(AvgPool):
-#    """
-#    GlobalAvgPool1d Module.
-#    """
-#
-#    def forward(self, input_tensor):
-#        return functional.avg_pool1d(input_tensor, input_tensor.size()[2:]).view(
-#            input_tensor.size()[:2]
-#        )
+#import mindspore.nn as nn
 
-def tf_dropout(layer, rate):
-    """
-    Keras dropout layer.
-    """
+"""
+class AvgPool(nn.Module):
 
-    from tensorflow.keras import layers
+    def __init__(self):
+        super().__init__()
 
-    input_dim = len(layer.input.shape)
-    if input_dim == 2:
-        return layers.SpatialDropout1D(rate)
-    elif input_dim == 3:
-        return layers.SpatialDropout2D(rate)
-    elif input_dim == 4:
-        return layers.SpatialDropout3D(rate)
-    else:
-        return layers.Dropout(rate)
+    @abstractmethod
+    def forward(self, input_tensor):
+        pass
 
-def to_real_tf_layer(layer):
-    """
-    Real tensorflow.keras layer.
-    """
-    from tensorflow.keras import layers
-    #import tensorflow
-    #initializer = tf.keras.initializes.he_normal(seed=None)
-    if is_layer(layer, "Dense"):
-        return layers.Dense(layer.units, input_shape=(layer.input_units,), kernel_initializer='glorot_uniform')#,kernel_regularizer=tensorflow.keras.regularizers.l2(1e-4))
-    if is_layer(layer, "Conv"):
-        return layers.Conv2D(
-            layer.filters,
-            layer.kernel_size,
-            input_shape=layer.input.shape,
-            strides=layer.stride,
-            padding="same",
-            kernel_initializer='truncated_normal',
-            #kernel_regularizer=tensorflow.keras.regularizers.l2(1e-4),
-        )  # padding
-    if is_layer(layer, "Pooling"):
-        if layer.stride!=None:
-            return layers.MaxPool2D(pool_size=(layer.kernel_size, layer.kernel_size), strides=layer.stride, padding='same', data_format=None)
-        else:
-            return layers.MaxPool2D(2)
-    if is_layer(layer, "BatchNormalization"):
-        return layers.BatchNormalization(momentum=0.9, epsilon=1e-4,input_shape=layer.input.shape)
-    if is_layer(layer, "Concatenate"):
-        return layers.Concatenate()
-    if is_layer(layer, "Add"):
-        return layers.Add()
-    if is_layer(layer, "Dropout"):
-        return tf_dropout(layer, layer.rate)
-    if is_layer(layer, "ReLU"):
-        return layers.Activation("relu")
-    if is_layer(layer, "Softmax"):
-        return layers.Activation("softmax")
-    if is_layer(layer, "Flatten"):
-        return layers.Flatten()
-    if is_layer(layer, "GlobalAveragePooling"):
-        return layers.GlobalAveragePooling2D()
-    return None  # note: this is not written by original author, feel free to modify if you think it's incorrect
 
-#class GlobalAvgPool2d(AvgPool):
-#    """
-#    GlobalAvgPool2d Module.
-#    """
-#
-#    def forward(self, input_tensor):
-#        return functional.avg_pool2d(input_tensor, input_tensor.size()[2:]).view(
-#            input_tensor.size()[:2]
-#        )
-#
-#
-#class GlobalAvgPool3d(AvgPool):
-#    """
-#    GlobalAvgPool3d Module.
-#    """
-#
-#    def forward(self, input_tensor):
-#        return functional.avg_pool3d(input_tensor, input_tensor.size()[2:]).view(
-#            input_tensor.size()[:2]
-#        )
+class GlobalAvgPool1d(AvgPool):
 
+    def forward(self, input_tensor):
+        return functional.avg_pool1d(input_tensor, input_tensor.size()[2:]).view(
+            input_tensor.size()[:2]
+        )
+
+
+class GlobalAvgPool2d(AvgPool):
+
+    def forward(self, input_tensor):
+        return functional.avg_pool2d(input_tensor, input_tensor.size()[2:]).view(
+            input_tensor.size()[:2]
+        )
+
+
+class GlobalAvgPool3d(AvgPool):
+
+    def forward(self, input_tensor):
+        return functional.avg_pool3d(input_tensor, input_tensor.size()[2:]).view(
+            input_tensor.size()[:2]
+        )
+"""
 
 class StubLayer:
     """
@@ -136,22 +68,22 @@ class StubLayer:
         """
         self.weights = weights
 
-    def import_weights(self, torch_layer):
+    #def import_weights(self, torch_layer):
         """
         import weights.
         """
 
-    def import_weights_keras(self, keras_layer):
+    #def import_weights_keras(self, keras_layer):
         """
         import weights from keras layer.
         """
 
-    def export_weights(self, torch_layer):
+    #def export_weights(self, torch_layer):
         """
         export weights.
         """
 
-    def export_weights_keras(self, keras_layer):
+    #def export_weights_keras(self, keras_layer):
         """
         export weights to keras layer.
         """
@@ -191,13 +123,13 @@ class StubWeightBiasLayer(StubLayer):
     """
     StubWeightBiasLayer Module to set the bias.
     """
-
+    """
     def import_weights(self, torch_layer):
         self.set_weights(
             (torch_layer.weight.data.cpu().numpy(),
              torch_layer.bias.data.cpu().numpy())
         )
-
+    
     def import_weights_keras(self, keras_layer):
         self.set_weights(keras_layer.get_weights())
 
@@ -207,7 +139,7 @@ class StubWeightBiasLayer(StubLayer):
 
     def export_weights_keras(self, keras_layer):
         keras_layer.set_weights(self.weights)
-
+    """
 
 class StubBatchNormalization(StubWeightBiasLayer):
     """
@@ -217,7 +149,7 @@ class StubBatchNormalization(StubWeightBiasLayer):
     def __init__(self, num_features, input_node=None, output_node=None):
         super().__init__(input_node, output_node)
         self.num_features = num_features
-
+    """
     def import_weights(self, torch_layer):
         self.set_weights(
             (
@@ -240,33 +172,33 @@ class StubBatchNormalization(StubWeightBiasLayer):
     @abstractmethod
     def to_real_layer(self):
         pass
-
+    """
 
 class StubBatchNormalization1d(StubBatchNormalization):
     """
     StubBatchNormalization1d Module.
     """
-
+    """
     def to_real_layer(self):
         return torch.nn.BatchNorm1d(self.num_features)
-
+    """
 
 class StubBatchNormalization2d(StubBatchNormalization):
     """
-    StubBatchNormalization2d Module.
-    """
+    #StubBatchNormalization2d Module.
 
     def to_real_layer(self):
         return torch.nn.BatchNorm2d(self.num_features)
+    """
 
 
 class StubBatchNormalization3d(StubBatchNormalization):
     """
-    StubBatchNormalization3d Module.
-    """
+    #StubBatchNormalization3d Module.
 
     def to_real_layer(self):
         return torch.nn.BatchNorm3d(self.num_features)
+    """
 
 
 class StubDense(StubWeightBiasLayer):
@@ -282,7 +214,7 @@ class StubDense(StubWeightBiasLayer):
     @property
     def output_shape(self):
         return (self.units,)
-
+    """
     def import_weights_keras(self, keras_layer):
         self.set_weights(
             (keras_layer.get_weights()[0].T,
@@ -296,7 +228,7 @@ class StubDense(StubWeightBiasLayer):
 
     def to_real_layer(self):
         return torch.nn.Linear(self.input_units, self.units)
-
+    """
 
 class StubConv(StubWeightBiasLayer):
     """
@@ -321,7 +253,7 @@ class StubConv(StubWeightBiasLayer):
             )
         ret = ret + [self.filters]
         return tuple(ret)
-
+    """
     def import_weights_keras(self, keras_layer):
         self.set_weights(
             (keras_layer.get_weights()[0].T,
@@ -329,15 +261,15 @@ class StubConv(StubWeightBiasLayer):
 
     def export_weights_keras(self, keras_layer):
         keras_layer.set_weights((self.weights[0].T, self.weights[1]))
-
+    """
     def size(self):
         return (self.input_channel * self.kernel_size *
-                self.kernel_size + 1) * self.filters
-
+            self.kernel_size + 1) * self.filters
+    """
     @abstractmethod
     def to_real_layer(self):
         pass
-
+    """
     def __str__(self):
         return (
             super().__str__()
@@ -357,8 +289,6 @@ class StubConv(StubWeightBiasLayer):
 
 class StubConv1d(StubConv):
     """
-    StubConv1d Module.
-    """
 
     def to_real_layer(self):
         return torch.nn.Conv1d(
@@ -368,11 +298,10 @@ class StubConv1d(StubConv):
             stride=self.stride,
             padding=self.padding,
         )
+    """
 
 
 class StubConv2d(StubConv):
-    """
-    StubConv2d Module.
     """
 
     def to_real_layer(self):
@@ -383,11 +312,10 @@ class StubConv2d(StubConv):
             stride=self.stride,
             padding=self.padding,
         )
+    """
 
 
 class StubConv3d(StubConv):
-    """
-    StubConv3d Module.
     """
 
     def to_real_layer(self):
@@ -398,7 +326,7 @@ class StubConv3d(StubConv):
             stride=self.stride,
             padding=self.padding,
         )
-
+    """
 
 class StubAggregateLayer(StubLayer):
     """
@@ -421,10 +349,10 @@ class StubConcatenate(StubAggregateLayer):
             ret += current_input.shape[-1]
         ret = self.input[0].shape[:-1] + (ret,)
         return ret
-
+    """
     def to_real_layer(self):
         return TorchConcatenate()
-
+    """
 
 class StubAdd(StubAggregateLayer):
     """
@@ -433,10 +361,10 @@ class StubAdd(StubAggregateLayer):
     @property
     def output_shape(self):
         return self.input[0].shape
-
+    """
     def to_real_layer(self):
         return TorchAdd()
-
+    """
 
 class StubFlatten(StubLayer):
     """
@@ -448,28 +376,28 @@ class StubFlatten(StubLayer):
         for dim in self.input.shape:
             ret *= dim
         return (ret,)
-
+    """
     def to_real_layer(self):
         return TorchFlatten()
-
+    """
 
 class StubReLU(StubLayer):
     """
     StubReLU Module.
     """
-
+    """
     def to_real_layer(self):
         return torch.nn.ReLU()
-
+    """
 
 class StubSoftmax(StubLayer):
     """
     StubSoftmax Module.
     """
-
+    """
     def to_real_layer(self):
         return torch.nn.LogSoftmax(dim=1)
-
+    """
 
 class StubDropout(StubLayer):
     """
@@ -479,37 +407,34 @@ class StubDropout(StubLayer):
     def __init__(self, rate, input_node=None, output_node=None):
         super().__init__(input_node, output_node)
         self.rate = rate
-
+    """
     @abstractmethod
     def to_real_layer(self):
         pass
-
+    """
 
 class StubDropout1d(StubDropout):
-    """
-    StubDropout1d Module.
     """
 
     def to_real_layer(self):
         return torch.nn.Dropout(self.rate)
+    """
 
 
 class StubDropout2d(StubDropout):
     """
-    StubDropout2d Module.
-    """
 
     def to_real_layer(self):
         return torch.nn.Dropout2d(self.rate)
+    """
 
 
 class StubDropout3d(StubDropout):
     """
-    StubDropout3d Module.
-    """
 
     def to_real_layer(self):
         return torch.nn.Dropout3d(self.rate)
+    """
 
 
 class StubInput(StubLayer):
@@ -543,41 +468,37 @@ class StubPooling(StubLayer):
     def output_shape(self):
         ret = tuple()
         for dim in self.input.shape[:-1]:
-            ret = ret + (max(int(dim / self.stride), 1),)
+            ret = ret + (max(int(dim / self.kernel_size), 1),)
         ret = ret + (self.input.shape[-1],)
         return ret
-
+    """
     @abstractmethod
     def to_real_layer(self):
         pass
-
+    """
 
 class StubPooling1d(StubPooling):
-    """
-    StubPooling1d Module.
     """
 
     def to_real_layer(self):
         return torch.nn.MaxPool1d(self.kernel_size, stride=self.stride)
+    """
 
 
 class StubPooling2d(StubPooling):
     """
-    StubPooling2d Module.
-    """
 
     def to_real_layer(self):
         return torch.nn.MaxPool2d(self.kernel_size, stride=self.stride)
+    """
 
 
 class StubPooling3d(StubPooling):
     """
-    StubPooling3d Module.
-    """
 
     def to_real_layer(self):
         return torch.nn.MaxPool3d(self.kernel_size, stride=self.stride)
-
+    """
 
 class StubGlobalPooling(StubLayer):
     """
@@ -590,70 +511,58 @@ class StubGlobalPooling(StubLayer):
     @property
     def output_shape(self):
         return (self.input.shape[-1],)
-
+    """
     @abstractmethod
     def to_real_layer(self):
         pass
-
+    """
 
 class StubGlobalPooling1d(StubGlobalPooling):
-    """
-    StubGlobalPooling1d Module.
     """
 
     def to_real_layer(self):
         return GlobalAvgPool1d()
+    """
+
 
 
 class StubGlobalPooling2d(StubGlobalPooling):
     """
-    StubGlobalPooling2d Module.
-    """
 
     def to_real_layer(self):
         return GlobalAvgPool2d()
+    """
+
 
 
 class StubGlobalPooling3d(StubGlobalPooling):
     """
-    StubGlobalPooling3d Module.
-    """
 
     def to_real_layer(self):
         return GlobalAvgPool3d()
+    """
+
+""""
+
+class TorchConcatenate(nn.Module):
+
+    def forward(self, input_list):
+        return torch.cat(input_list, dim=1)
 
 
-#class TorchConcatenate(nn.Module):
-#    """
-#    TorchConcatenate Module.
-#    """
-#
-#    def forward(self, input_list):
-#        return torch.cat(input_list, dim=1)
-#
-#
-#class TorchAdd(nn.Module):
-#    """
-#    TorchAdd Module.
-#    """
-#
-#    def forward(self, input_list):
-#        return input_list[0] + input_list[1]
-#
-#
-#class TorchFlatten(nn.Module):
-#    """
-#    TorchFlatten Module.
-#    """
-#
-#    def forward(self, input_tensor):
-#        return input_tensor.view(input_tensor.size(0), -1)
+class TorchAdd(nn.Module):
+
+    def forward(self, input_list):
+        return input_list[0] + input_list[1]
+
+
+class TorchFlatten(nn.Module):
+
+    def forward(self, input_tensor):
+        return input_tensor.view(input_tensor.size(0), -1)
 
 
 def keras_dropout(layer, rate):
-    """
-    Keras dropout layer.
-    """
 
     from keras import layers
 
@@ -669,10 +578,8 @@ def keras_dropout(layer, rate):
 
 
 def to_real_keras_layer(layer):
-    """
-    Real keras layer.
-    """
     from keras import layers
+
     if is_layer(layer, "Dense"):
         return layers.Dense(layer.units, input_shape=(layer.input_units,))
     if is_layer(layer, "Conv"):
@@ -680,14 +587,10 @@ def to_real_keras_layer(layer):
             layer.filters,
             layer.kernel_size,
             input_shape=layer.input.shape,
-            strides=layer.stride,
             padding="same",
         )  # padding
     if is_layer(layer, "Pooling"):
-        if layer.stride!=None:
-            return layers.MaxPool2D(pool_size=(layer.kernel_size, layer.kernel_size), strides=layer.stride, padding='same', data_format=None)
-        else:
-            return layers.MaxPool2D(2)
+        return layers.MaxPool2D(2)
     if is_layer(layer, "BatchNormalization"):
         return layers.BatchNormalization(input_shape=layer.input.shape)
     if is_layer(layer, "Concatenate"):
@@ -705,17 +608,119 @@ def to_real_keras_layer(layer):
     if is_layer(layer, "GlobalAveragePooling"):
         return layers.GlobalAveragePooling2D()
     return None  # note: this is not written by original author, feel free to modify if you think it's incorrect
+"""
+
+
+import numpy as np
+from mindspore import Tensor
+from mindspore import nn
+from mindspore.ops import operations as P
+
+
+class MEGlobalAvgPooling(nn.Cell):
+    def __init__(self):
+        super(MEGlobalAvgPooling, self).__init__()
+        self.mean = P.ReduceMean(keep_dims=False)
+    
+    def construct(self, x):
+        x = self.mean(x, (2, 3))
+        return x
+
+
+class MEConcatLayer(nn.Cell):
+    def __init__(self, axis, input_num):
+        super(MEConcatLayer, self).__init__()
+        self.concat = P.Concat()
+        self.input_num = input_num
+        self.split = P.Split(1, input_num + 2)
+    def construct(self, x):
+        x = self.split(x)
+        x = self.concat(x[2:])
+        return x
+
+
+class METensorAddLayer(nn.Cell):
+    def __init__(self):
+        super(METensorAddLayer, self).__init__()
+        self.add = P.TensorAdd()
+    
+    def construct(self, x, y):
+        return self.add(x, y)
+
+
+TYPE_DICT = {
+    "Conv": 0,
+    "Dense": 1,
+    "BatchNormalization": 2,
+    "Concatenate": 3,
+    "Add": 4,
+    "Pooling": 5,
+    "Dropout": 6,
+    "Softmax": 7,
+    "ReLU": 8,
+    "Flatten": 9,
+    "GlobalAveragePooling": 10
+}
+
+
+TYPE_DICT_REVERSE = {
+    0: "conv",
+    1: "dense",
+    2: "bn",
+    3: "concat",
+    4: "add",
+    5: "pool",
+    6: "dropout",
+    7: "softmax",
+    8: "relu",
+    9: "flatten",
+    10: "globalpool"
+}
+
+def _me_weight_variable(shape, factor=0.01):
+    init_value = np.random.randn(*shape).astype(np.float32) * factor
+    return Tensor(init_value)
+
+def to_real_mindspore_layer(layer):
+    if is_layer(layer, "Dense"):
+        weight_shape = (layer.units, layer.input_units)
+        weight = _me_weight_variable(weight_shape)
+        return nn.Dense(layer.input_units, layer.units, has_bias=True, weight_init=weight, bias_init=0), TYPE_DICT["Dense"]
+    if is_layer(layer, "Conv"):
+        weight_shape = (layer.filters, layer.input_channel, layer.kernel_size, layer.kernel_size)
+        weight = _me_weight_variable(weight_shape)
+        return nn.Conv2d(
+            in_channels=layer.input_channel,
+            out_channels=layer.filters,
+            kernel_size=layer.kernel_size,
+            stride=layer.stride,
+            pad_mode="same",
+            weight_init=weight
+        ), TYPE_DICT["Conv"]
+    if is_layer(layer, "Pooling"):
+        return nn.MaxPool2d(kernel_size=layer.kernel_size, stride=layer.stride, pad_mode='same'), TYPE_DICT["Pooling"]
+    if is_layer(layer, "BatchNormalization"):
+        return nn.BatchNorm2d(layer.input.shape[2], gamma_init=1, beta_init=0, moving_mean_init=0, moving_var_init=1), TYPE_DICT["BatchNormalization"]
+    if is_layer(layer, "Concatenate"):
+        return MEConcatLayer(axis=1, input_num=len(layer.input)), TYPE_DICT["Concatenate"]
+    if is_layer(layer, "Add"):
+        return METensorAddLayer(), TYPE_DICT["Add"]
+    if is_layer(layer, "Dropout"):
+        return nn.Dropout(keep_prob=layer.rate), TYPE_DICT["Dropout"]
+    if is_layer(layer, "ReLU"):
+        return nn.ReLU(), TYPE_DICT["ReLU"]
+    if is_layer(layer, "Softmax"):
+        return nn.Softmax(), TYPE_DICT["Softmax"]
+    if is_layer(layer, "Flatten"):
+        return nn.Flatten(), TYPE_DICT["Flatten"]
+    if is_layer(layer, "GlobalAveragePooling"):
+        avg = MEGlobalAvgPooling()
+        flatten = nn.Flatten()
+        return nn.SequentialCell([avg, flatten]), TYPE_DICT["GlobalAveragePooling"]
+
 
 
 def is_layer(layer, layer_type):
-    """
-    Judge the layer type.
-
-    Returns
-    -------
-    bool
-        boolean -- True or False
-    """
 
     if layer_type == "Input":
         return isinstance(layer, StubInput)
@@ -847,6 +852,7 @@ def layer_width(layer):
     raise TypeError("The layer should be either Dense or Conv layer.")
 
 
+"""
 def set_torch_weight_to_stub(torch_layer, stub_layer):
     stub_layer.import_weights(torch_layer)
 
@@ -861,42 +867,55 @@ def set_stub_weight_to_torch(stub_layer, torch_layer):
 
 def set_stub_weight_to_keras(stub_layer, keras_layer):
     stub_layer.export_weights_keras(keras_layer)
-
+"""
 
 def get_conv_class(n_dim):
-    conv_class_list = [StubConv1d, StubConv2d, StubConv3d]
-    return conv_class_list[n_dim - 1]
+    pass
+    #conv_class_list = [StubConv1d, StubConv2d, StubConv3d]
+    #return conv_class_list[n_dim - 1]
 
 
 def get_dropout_class(n_dim):
-    dropout_class_list = [StubDropout1d, StubDropout2d, StubDropout3d]
-    return dropout_class_list[n_dim - 1]
+    pass
+    #dropout_class_list = [StubDropout1d, StubDropout2d, StubDropout3d]
+    #return dropout_class_list[n_dim - 1]
 
 
 def get_global_avg_pooling_class(n_dim):
+    pass
+    """
     global_avg_pooling_class_list = [
         StubGlobalPooling1d,
         StubGlobalPooling2d,
         StubGlobalPooling3d,
     ]
     return global_avg_pooling_class_list[n_dim - 1]
+    """
 
 
 def get_pooling_class(n_dim):
+    pass
+    """
     pooling_class_list = [StubPooling1d, StubPooling2d, StubPooling3d]
     return pooling_class_list[n_dim - 1]
+    """
 
 
 def get_batch_norm_class(n_dim):
+    pass
+    """
     batch_norm_class_list = [
         StubBatchNormalization1d,
         StubBatchNormalization2d,
         StubBatchNormalization3d,
     ]
     return batch_norm_class_list[n_dim - 1]
+    """
 
 
 def get_n_dim(layer):
+    pass
+    """
     if isinstance(layer, (
             StubConv1d,
             StubDropout1d,
@@ -922,3 +941,5 @@ def get_n_dim(layer):
     )):
         return 3
     return -1
+    """
+

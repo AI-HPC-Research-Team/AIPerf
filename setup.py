@@ -10,12 +10,12 @@ def read(fname):
 setup(
     name = 'nni',
     version = '',
-    author = 'Microsoft NNI Team',
-    author_email = 'nni@microsoft.com',
-    description = 'Neural Network Intelligence project',
+    author = 'Pengcheng Laboratory AAH Team',
+    author_email = 'renzhx@pcl.ac.cn',
+    description = 'Automated Machine Learning As An AI HPC Benchmark',
     long_description = read('README.md'),
     license = 'MIT',
-    url = 'https://github.com/Microsoft/nni',
+    url = 'https://github.com/pcl-ai-public/AAH',
 
     packages = find_packages('src/sdk/pynni', exclude=['tests']) + find_packages('src/sdk/pycli') + find_packages('tools'),
     package_dir = {
