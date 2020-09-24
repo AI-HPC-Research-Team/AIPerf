@@ -85,15 +85,15 @@ def get_args():
     parser.add_argument("--train_data_dir", type=str, default=None, help="tain data directory")
     parser.add_argument("--val_data_dir", type=str, default=None, help="val data directory")
     parser.add_argument("--slave", type=int, default=2, help="trial concurrency")
-    parser.add_argument("--batch_size", type=int, default=448, help="batch size")
-    parser.add_argument("--epochs", type=int, default=90, help="epoch limit")
+    parser.add_argument("--batch_size", type=int, default=256, help="batch size")
+    parser.add_argument("--epochs", type=int, default=60, help="epoch limit")
     parser.add_argument("--initial_lr", type=float, default=1e-1, help="init learning rate")
     parser.add_argument("--final_lr", type=float, default=0, help="final learning rate")
     parser.add_argument("--maxTPEsearchNum", type=int, default=2, help="max TPE search number")
     parser.add_argument("--smooth_factor", type=float, default=0.1, help="max TPE search number")
-    parser.add_argument("--warmup_1", type=int, default=60, help="epoch of first warm up round")
-    parser.add_argument("--warmup_2", type=int, default=70, help="epoch of second warm up round")
-    parser.add_argument("--warmup_3", type=int, default=80, help="epoch of third warm up round")
+    parser.add_argument("--warmup_1", type=int, default=15, help="epoch of first warm up round")
+    parser.add_argument("--warmup_2", type=int, default=30, help="epoch of second warm up round")
+    parser.add_argument("--warmup_3", type=int, default=45, help="epoch of third warm up round")
     return parser.parse_args()
 
 
@@ -277,7 +277,7 @@ def train_eval_distribute(hyper_params, receive_config, trial_id, hp_path):
 
     # caculate epoch
     loopnum = trial_id // args.slave
-    patience = min(int(12 + (2 * loopnum)), 20)
+    patience = min(int(6 + (2 * loopnum)), 20)
     if loopnum == 0:
         run_epochs = int(args.warmup_1)
     elif loopnum == 1:
