@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AI-HPC Benchmark Result</title>
+    <style type="text/css">
+    * {
+        margin: 0;
+        padding: 0;
+        font-family: Verdana, sans-serif;
+    }
+    ul,
+    ol {
+        list-style: none;
+    }
+    img {
+        border: 0;
+    }
+    p {
+        width: 400px;
+        margin: 0 auto;
+        margin-top: 30px;
+        font-size: 30px;
+        text-align: center;
+    }
+    table,
+    h1,
+    h3 {
+        width: 960px;
+        margin: 0 auto;
+        margin-top: 20px;
+        text-align: center;
+    }
+    h3 {
+        text-align: left;
+    }
+    thead {
+        background: #D3D3D3;
+        color: #000;
+    }
+    td {
+        padding: 5px;
+        text-align: left;
+    }
+
+html {
+     font-family: code2000;
+}
+
+    </style>
+</head>
+<body>
+<h1>AI-HPC Benchmark Result</h1>
+
+<table cellpadding="0" style="border-collapse:collapse;" id="tabObjId">
+    <thead>
+
+    {% if warning == 1%}
+    <tr style="color:#e91515 ; background:#e3f9bf;font-weight:bold">
+        <td width="100%" style="font-size:22px">
+            {{warning_info}}
+        </td>
+
+    </tr>
+    {% endif %}
+    <tr style="border:1px solid; background: #fff" >
+        <td style="font-size: 18px" >
+            {%for k in conclusion%}
+                <span style="font-weight:bold">{{k[0]}}</span>:{{k[1]}}<br>
+            {% endfor %}
+        </td>
+    </tr>
+    <tr style="border:1px solid; background: #fff">
+        <td style="text-align:center;vertical-align:middle; background-color:#525659">
+            <!--                <div><img src="static/error.png" height="70%"></div>-->
+            <div><img src={{error}} height="70%"></div>
+            <!--            <iframe src="static/error.pdf" width="1000" height="600"></iframe>-->
+        </td>
+    </tr>
+    <tr style="border:1px solid; background: #fff">
+        <td style="text-align:center;vertical-align:middle; background-color:#525659">
+            <!--                <div><img src="static/flops.png" height="70%"></div>-->
+            <div><img src={{flops}} height="70%"></div>
+
+            <!--            <iframe src="static/error.pdf" width="1000" height="600"></iframe>-->
+        </td>
+        <br>
+    </tr>
+    <tr style="border:1px solid; background: #fff">
+        <td style="text-align:center;vertical-align:middle; background-color:#525659">
+            <!--                <div><img src="static/score.png" height="70%"></div>-->
+            <div><img src={{score}} height="70%"></div>
+
+            <!--            <iframe src="static/error.pdf" width="1000" height="600"></iframe>-->
+        </td>
+    </tr>
+    </thead>
+    <tbody>
+    </tbody>
+</table>
+<h3 style="text-align:right;vertical-align:right; font-weight:normal">{{nowtime}}</h3>
+<h3 class="footer-heading" style="text-align:right;vertical-align:right">Contact us with email: renzhx@pcl.ac.cn</h3>
+<br>
+</body>
+</html>
