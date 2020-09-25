@@ -1,5 +1,6 @@
 # Copyright (c) Microsoft Corporation.
-# Copyright (c) Peng Cheng Laboratory
+# Copyright (c) Peng Cheng Laboratory.
+# Copyright (c) Tsinghua University.
 # Licensed under the MIT license.
 
 """
