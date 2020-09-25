@@ -607,7 +607,9 @@ python3 /userhome/AIPerf/scripts/reports/report.py --id  experiment_ID  --logs T
 
 ## <span id="head17"> Benchmark报告反馈</span>
 
-当您将结果数据和日志保存下来后需要将 /root/mountdir/nni/experiments/experiment_ID目录打包、试验的训练的代码发送到我们的邮箱renzhx@pcl.ac.cn、yongheng.liu@pcl.ac.cn；
+若测试中遇到问题，请联系renzhx@pcl.ac.cn，并附上`/userhome/mountdir/nni/experiments/experiment_ID/results/`中的html版报告。
+
+
 
 ## <span id="head18"> 许可</span>
 
