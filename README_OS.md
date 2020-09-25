@@ -3,7 +3,7 @@
 ![](https://github.com/AI-HPC-Research-Team/AIPerf/blob/master/logo_PCL.jpg)![](https://github.com/AI-HPC-Research-Team/AIPerf/blob/master/logo_THU.jpg)
 
 ### 开发单位：鹏城实验室(PCL)，清华大学(THU)
-
+### 特别感谢： 国防科技大学窦勇老师及其团队的宝贵意见，建议和支持 ###
 
 
 - [AIPerf Benchmark v1.0](#head1)
@@ -35,6 +35,8 @@
 # <span id="head1">AIPerf Benchmark v1.0</span>
 
 ## <span id="head2"> Benchmark结构设计</span>
+
+### 关于AIPerf设计理念，技术细节，以及测试结果，请参考论文：https://arxiv.org/abs/2008.07141 ###
 
 AIPerf Benchmark基于微软NNI开源框架，以自动化机器学习（AutoML）为负载，使用network morphism进行网络结构搜索和TPE进行超参搜索。
 
@@ -490,7 +492,7 @@ mv ILSVRC2012/output/validation-* /userhome/datasets/imagenet/val
 
 1. 经过多次8/16/32/64/128卡(tesla v100-32G )规模的测试， 在6小时后正确率会开始收敛， 因此建议测试运行时间应不少于6小时；
 2. 测试用例的训练精度应不低于float16；
-3. 测试用例初始的 “batch size” ，建议设置为 gpu显存*16 ，eg：32G的显存，batch_size = 32 * 16；
+3. 测试用例初始的 “batch size” ，建议设置为 gpu显存*8 ，eg：32G的显存，batch_size = 32 * 8；
 4. benchmark的算分机制在正确率大于等于65%才给出有效分数， 如果测试长时间达不到有效正确率(65%)，建议停止实验后调整训练参数(eg：batch size， learning rate)重新测试 。
 
 #### <span id="head16"> 配置运行参数</span>
@@ -506,8 +508,8 @@ mv ILSVRC2012/output/validation-* /userhome/datasets/imagenet/val
 | 4    | srun：--cpus-per-task=23 |   参数为slurm可用cpu核数减 1    |       23        |
 | 5    |         --slave          | 跟 trialConcurrency参数保持一致 |        1        |
 | 6    |           --ip           |          master节点ip           |    127.0.0.1    |
-| 7    |       --batch_size       |           batch size            |       512       |
-| 8    |         --epoch          |         正常训练epoch数         |       60        |
+| 7    |       --batch_size       |           batch size            |       256       |
+| 8    |         --epochs         |         正常训练epoch数         |       60        |
 | 9    |       --initial_lr       |           初始学习率            |      1e-1       |
 | 10   |        --final_lr        |           最低学习率            |        0        |
 | 11   |     --train_data_dir     |         训练数据集路径          |      None       |
@@ -515,7 +517,7 @@ mv ILSVRC2012/output/validation-* /userhome/datasets/imagenet/val
 | 13   |        --warmup_1        |    warm up机制第一轮epoch数     |       15        |
 | 14   |        --warmup_2        |    warm up机制第二轮epoch数     |       30        |
 | 15   |        --warmup_3        |    warm up机制第三轮epoch数     |       45        |
-
+| 16   |   --num_parallel_calls   |      tfrecord数据加载加速       |       48        |
 
 可参照如下配置：
 
@@ -523,8 +525,8 @@ mv ILSVRC2012/output/validation-* /userhome/datasets/imagenet/val
 authorName: default
 experimentName: example_imagenet-network-morphism-test
 trialConcurrency: 1		# 1
-maxExecDuration: 24h	# 2
-maxTrialNum: 6000
+maxExecDuration: 12h	# 2
+maxTrialNum: 30000
 trainingServicePlatform: local
 useAnnotation: false
 tuner:
@@ -545,8 +547,8 @@ trial:
        python3 imagenet_tfkeras_slurm_hpo.py \
        --slave 1 \								  # 5
        --ip 127.0.0.1 \							  # 6
-       --batch_size 512 \						  # 7
-       --epoch 90 \						          # 8
+       --batch_size 256 \						  # 7
+       --epoch 60 \						          # 8
        --initial_lr 1e-1 \						  # 9
        --final_lr 0 \						  # 10
        --train_data_dir /gdata/ILSVRC2012/ImageNet-Tensorflow/train_tfrecord/ \  # 11
@@ -643,9 +645,7 @@ python3 /userhome/AIPerf/scripts/reports/report.py --id  experiment_ID  --logs T
 
 
 ## <span id="head22"> Benchmark报告反馈</span>
-
-当您将结果数据和日志保存下来后需要将 /root/mountdir/nni/experiments/experiment_ID目录打包、试验的训练的代码发送到我们的邮箱renzhx@pcl.ac.cn、yongheng.liu@pcl.ac.cn；
-
+若测试中遇到问题，请联系renzhx@pcl.ac.cn，并附上`/userhome/mountdir/nni/experiments/experiment_ID/results/`中的html版报告。
 
 
 ## <span id="head23"> 许可</span>
