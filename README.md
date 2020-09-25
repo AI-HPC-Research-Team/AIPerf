@@ -474,7 +474,7 @@ sinfo
 | 5    |          --slave          | 跟 trialConcurrency参数保持一致 |     1     |
 | 6    |           --ip            |          master节点ip           | 127.0.0.1 |
 | 7    |       --batch_size        |           batch size            |    256    |
-| 8    |          --epoch          |         正常训练epoch数         |    60     |
+| 8    |          --epochs         |         正常训练epoch数         |    60     |
 | 9    |       --initial_lr        |           初始学习率            |   1e-1    |
 | 10   |        --final_lr         |           最低学习率            |     0     |
 | 11   |     --train_data_dir      |         训练数据集路径          |   None    |
@@ -513,7 +513,7 @@ trial:
        --slave 1 \									# 5
        --ip 127.0.0.1 \								# 6
        --batch_size 256 \							# 7
-       --epoch 60 \									# 8
+       --epochs 60 \									# 8
        --initial_lr 1e-1 \							# 9
        --final_lr 0 \								# 10
        --train_data_dir /home/data/train/ \  # 11
