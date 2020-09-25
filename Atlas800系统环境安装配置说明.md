@@ -366,8 +366,6 @@ Get component version(1.73.105.0.b050) succeed for deviceId(0), componentType(9)
 ```
 
 10. 执行**npu-smi info**查看NPU工具安装是否成功。
-回显如下类似信息，说明安装成功。否则，说明安装失败，请联系华为技术支持处理。
-![img](https://download.huawei.com/mdl/imgDownload?uuid=d5709732df57416ca0d74aa1e987adb4)
 
 
 # 四、版本安装注意事项
