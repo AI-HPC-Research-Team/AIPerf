@@ -162,7 +162,6 @@ $apt-get update
 深度学习引擎包、实用工具包和框架插件包安装前需要下载相关依赖软件，下载依赖软件需要使用**sudo apt-get**权限，请以root用户执行如下操作。
 
 1. 安装sudo，使用如下命令安装。
-
    ```
 $apt-get install sudo
    ```
