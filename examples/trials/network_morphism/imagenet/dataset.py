@@ -28,7 +28,7 @@ def get_filenames(data_dir):
 
 
 def process_record_dataset(dataset, is_training, batch_size, shuffle_buffer,
-                           parse_record_fn, num_epochs=1, num_gpus=None,
+                           parse_record_fn, num_epochs=1, npc=48,num_gpus=None, 
                            examples_per_epoch=None, dtype=tf.float32):
 
     dataset = dataset.prefetch(buffer_size=batch_size)
@@ -41,7 +41,7 @@ def process_record_dataset(dataset, is_training, batch_size, shuffle_buffer,
         tf.data.experimental.map_and_batch(
         lambda value: parse_record_fn(value, is_training, dtype),
         batch_size=batch_size * num_gpus
-        , num_parallel_calls=48))
+        , num_parallel_calls=npc))
 
     dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 

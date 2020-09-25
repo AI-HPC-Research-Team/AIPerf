@@ -2,7 +2,7 @@ authorName: default
 experimentName: example_imagenet-network-morphism-test
 trialConcurrency: 14
 maxExecDuration: 12h
-maxTrialNum: 300
+maxTrialNum: 30000
 trainingServicePlatform: local
 useAnnotation: false
 tuner:
@@ -26,8 +26,10 @@ trial:
            python3 imagenet_train.py \
            --slave 14 \
            --ip 10.133.75.11 \
-           --batch_size 512 \
+           --batch_size 256 \
+           --num_parallel_calls 48 \
            --train_data_dir /gdata/ILSVRC2012/ImageNet-Tensorflow/train_tfrecord \
            --val_data_dir /gdata/ILSVRC2012/ImageNet-Tensorflow/validation_tfrecord 
+
   codeDir: .
   gpuNum: 0

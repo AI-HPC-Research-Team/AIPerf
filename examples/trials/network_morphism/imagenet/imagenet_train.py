@@ -70,7 +70,7 @@ def get_args():
     parser.add_argument("--train_data_dir", type=str, default=None, help="tain data directory")
     parser.add_argument("--val_data_dir", type=str, default=None, help="val data directory")
     parser.add_argument("--slave", type=int, default=2, help="trial concurrency")
-    parser.add_argument("--batch_size", type=int, default=512, help="batch size")
+    parser.add_argument("--batch_size", type=int, default=256, help="batch size")
     parser.add_argument("--warmup_1", type=int, default=15, help="epoch of first warm up round")
     parser.add_argument("--warmup_2", type=int, default=30, help="epoch of second warm up round")
     parser.add_argument("--warmup_3", type=int, default=45, help="epoch of third warm up round")
@@ -79,6 +79,7 @@ def get_args():
     parser.add_argument("--final_lr", type=float, default=0, help="final learning rate")
     parser.add_argument("--maxTPEsearchNum", type=int, default=2, help="max TPE search number")
     parser.add_argument("--smooth_factor", type=float, default=0.1, help="max TPE search number")
+    parser.add_argument("--num_parallel_calls", type=int, default=48, help="number of parallel call during data loading")
     return parser.parse_args()
 
 
@@ -198,6 +199,7 @@ def train_eval(esargs, RCV_CONFIG, seqid):
         shuffle_buffer=shuffle_buffer,
         parse_record_fn=ds.parse_record,
         num_epochs=args.epochs,
+        npc=args.num_parallel_calls,
         num_gpus=gpus,
         examples_per_epoch=examples_per_epoch if is_training else None,
         dtype=tf.float32
@@ -214,6 +216,7 @@ def train_eval(esargs, RCV_CONFIG, seqid):
         shuffle_buffer=shuffle_buffer,
         parse_record_fn=ds.parse_record,
         num_epochs=args.epochs,
+        npc=args.num_parallel_calls,
         num_gpus=gpus,
         examples_per_epoch=None,
         dtype=tf.float32

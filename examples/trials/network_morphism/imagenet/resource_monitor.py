@@ -73,7 +73,7 @@ def record_device_info():
         write_file(log_path + '/cpu_core_info.csv',cpu_core_context)
         cpu = os.popen("export TERM=linux && top -bn 2|grep Cpu\(s\)|awk '{print $2+$4}'").readlines()[1].strip()
         write_file(log_path + '/cpu_info.csv',cpu)
-        mem = os.popen("export TERM=linux && free |grep -E '内存|Mem:' |awk '{print $3}' ").readline().strip()
+        mem = os.popen("export TERM=linux && free |grep -E 'Mem:' |awk '{print $3}' ").readline().strip()
         write_file(log_path + '/mem_info.csv',str(int(mem)/1024)) #M
         gpu = os.popen("gpustat|awk '{print $6,$9}'").readlines()
         for index,i in enumerate(gpu[1:]):
