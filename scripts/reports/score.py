@@ -267,9 +267,9 @@ def process_log(trial_id_list, experiment_data, dur, experiment_path):
         fraction = fraction / (10**15)
 
         results['real_time'].append('{:.2f}'.format(run_sec / 3600.))
-        results['PFLOPS'].append('{:.2f}'.format(float(total_FLOPs) / float(run_sec) / (10**15)))
+        results['PFLOPS'].append('{:.4f}'.format(float(total_FLOPs) / float(run_sec) / (10**15)))
         results['Error'].append('{:.2f}'.format(100 - max_acc * 100))
-        results['Score'].append('{:.2f}'.format(fraction))
+        results['Score'].append('{:.4f}'.format(fraction))
     return results
 
 def cal_report_results(expid):
