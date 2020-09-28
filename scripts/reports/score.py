@@ -34,56 +34,68 @@ def get_one_train_info(lines, start, end):
     '''
     train_info = dict()
     eval_info = dict()
+    epoch_size = 1
 
     # 遍历每一行
-    for line in lines[start:end]:
+    for line in lines[start:end]+[lines[end]]:
         if 'PRINT' not in line:
             continue
-        # 获取每一行的打印时间
-        print_time, print_info = line.split('PRINT')
-        print_time = print_time.strip().strip('[').strip(']')
-        print_info = print_info.strip()
-        print_time = conversion_time(print_time)
 
-        # 如果是训练信息，则提取：epoch训练时间，step训练时间，loss
-        if 'train time' in print_info:
-            epoch_num, epoch_time, step_time, loss = print_info.split(', ')
+        try:
+            # 获取每一行的打印时间
+            print_time, print_info = line.split('PRINT')
+            print_time = print_time.strip().strip('[').strip(']')
+            print_info = print_info.strip()
+            print_time = conversion_time(print_time)
 
-            epoch_num = int(epoch_num.split('Epoch')[-1].strip().split('/')[0])
-            epoch_time = float(epoch_time.split('train time:')[-1].strip()) / 1000
-            step_time = float(step_time.split('per step time:')[-1].strip()) / 1000
-            loss = float(loss.split('loss:')[-1].strip())
+            # 如果是训练信息，则提取：epoch训练时间，step训练时间，loss
+            if 'train time' in print_info:
+                epoch_num, epoch_time, step_time, loss = print_info.split(', ')
 
-            if epoch_num in list(train_info.keys()):
-                train_info[epoch_num]['epoch_time'].append(epoch_time)
-                train_info[epoch_num]['step_time'].append(step_time)
-                train_info[epoch_num]['loss'].append(loss)
+                epoch_num = int(epoch_num.split('Epoch')[-1].strip().split('/')[0])
+                epoch_time = float(epoch_time.split('train time:')[-1].strip()) / 1000
+                step_time = float(step_time.split('per step time:')[-1].strip()) / 1000
+                loss = float(loss.split('loss:')[-1].strip())
+
+                if epoch_num in list(train_info.keys()):
+                    train_info[epoch_num]['epoch_time'].append(epoch_time)
+                    train_info[epoch_num]['step_time'].append(step_time)
+                    train_info[epoch_num]['loss'].append(loss)
+                else:
+                    train_info[epoch_num] = dict()
+                    train_info[epoch_num]['epoch_time'] = [epoch_time]
+                    train_info[epoch_num]['step_time'] = [step_time]
+                    train_info[epoch_num]['loss'] = [loss]
+
+            # 如果是验证信息，则提取：验证精度，验证时间，验证结束时间
+            elif 'EvalTime' in print_info:
+                epoch_num, eval_acc, eval_time = print_info.split(', ')
+
+                epoch_num = int(epoch_num.split('Epoch')[-1].strip().split('/')[0])
+                eval_acc = float(eval_acc.split('EvalAcc:')[-1].strip())
+                eval_time = float(eval_time.strip('s').split('EvalTime')[-1].strip())
+
+                if epoch_num in list(eval_info.keys()):
+                    eval_info[epoch_num]['eval_acc'].append(eval_acc)
+                    eval_info[epoch_num]['eval_time'].append(eval_time)
+                    eval_info[epoch_num]['eval_end_time'].append(print_time)
+                else:
+                    eval_info[epoch_num] = dict()
+                    eval_info[epoch_num]['eval_acc'] = [eval_acc]
+                    eval_info[epoch_num]['eval_time'] = [eval_time]
+                    eval_info[epoch_num]['eval_end_time'] = [print_time]
+
             else:
-                train_info[epoch_num] = dict()
-                train_info[epoch_num]['epoch_time'] = [epoch_time]
-                train_info[epoch_num]['step_time'] = [step_time]
-                train_info[epoch_num]['loss'] = [loss]
+                epoch_num = epoch_size
 
-        # 如果是验证信息，则提取：验证精度，验证时间，验证结束时间
-        elif 'EvalTime' in print_info:
-            epoch_num, eval_acc, eval_time = print_info.split(', ')
+            if epoch_size < epoch_num:
+                epoch_size = epoch_num
+        except Exception as e:
+            pass
 
-            epoch_num = int(epoch_num.split('Epoch')[-1].strip().split('/')[0])
-            eval_acc = float(eval_acc.split('EvalAcc:')[-1].strip())
-            eval_time = float(eval_time.strip('s').split('EvalTime')[-1].strip())
-
-            if epoch_num in list(eval_info.keys()):
-                eval_info[epoch_num]['eval_acc'].append(eval_acc)
-                eval_info[epoch_num]['eval_time'].append(eval_time)
-                eval_info[epoch_num]['eval_end_time'].append(print_time)
-                eval_info[epoch_num]['eval_end_time'].append(print_time)
-            else:
-                eval_info[epoch_num] = dict()
-                eval_info[epoch_num]['eval_acc'] = [eval_acc]
-                eval_info[epoch_num]['eval_time'] = [eval_time]
-                eval_info[epoch_num]['eval_end_time'] = [print_time]
     assert len(list(train_info.keys())) > 0, 'Train info is empty! Check param "train_num".'
-    epoch_size = max(list(train_info.keys()))
+    if len(list(eval_info.keys()))!=epoch_size or len(eval_info[epoch_size]['eval_time'])!=len(train_info[epoch_size]['epoch_time']):
+        epoch_size -= 1
 
     epoch_time_list = []
     step_time_list = []
@@ -130,8 +142,13 @@ def find_all_trials(nnidir, expid, trial_id_list):
                 if 'HPO-' in line:
                     info_end_list.append(index)
 
-        if len(lines)-info_end_list[-1] > 10:
+        if len(lines)-info_end_list[-1] > 20:
             info_end_list.append(-1)
+        elif info_end_list[-1]==0:
+            continue
+        else:
+            pass
+
         # 依次解析每一个 train 的信息
         for start, end in zip(info_end_list[:-1], info_end_list[1:]):
             info = get_one_train_info(lines, start, end)
@@ -141,9 +158,12 @@ def find_all_trials(nnidir, expid, trial_id_list):
             res = []
             for index,(time_, acc_) in enumerate(zip(eval_end_time, eval_acc)):
                 res.append([index+1, time_, acc_])
-            hp_list.append(res)
-            #print(trial_id, np.array(res).shape)
 
+            hp_list.append(res)
+
+        #print(trial_id, np.array(hp_list[-1]).shape)
+        if np.array(hp_list[-1]).shape[0]==0:
+            continue
         experiment_data[trial_id] = hp_list
 
     return experiment_data
