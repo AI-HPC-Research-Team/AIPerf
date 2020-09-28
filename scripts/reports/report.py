@@ -104,6 +104,8 @@ def main(args, save_folder):
     internal_log = save_log.display_log(results)
     logs += internal_log
     print(logs)
+    logs += str(results)
+    logs += "\n----------------------------------------------------------------------\n"
     with open(os.path.join(save_folder, 'results.txt'), 'w') as txtfile:
         txtfile.write(logs)
     return results, trial_id_list, experiment_data

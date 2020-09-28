@@ -256,7 +256,7 @@ def process_log(trial_id_list, experiment_data, dur, experiment_path):
 
     flops_info = profiler.profiler(experiment_path)
 
-    for index in range(1, int(dur)+2):
+    for index in np.arange(0.3, dur+0.1, 0.1):
         start_time,stop_time = find_startime(trial_id_list, index, experiment_path)
 
         # 获取实验过程总数据
