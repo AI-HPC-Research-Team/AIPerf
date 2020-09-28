@@ -22,6 +22,7 @@ import time
 import datetime
 import math
 import profiler
+import numpy as np
 
 def find_all_trials(nnidir, expid, trial_id_list):
     experiment_data = {}
@@ -133,7 +134,7 @@ def process_log(trial_id_list, experiment_data, dur, experiment_path):
     results['Error'] = []
     results['Score'] = []
     flops_info = profiler.profiler(experiment_path)
-    for index in range(1,int(dur)+2):
+    for index in np.arange(0.2, dur+0.1, 0.1):
         start_time,stop_time = find_startime(trial_id_list, index, experiment_path)
         # 获取实验过程总数据
         lastest_time, max_acc, result_dict = find_max_acc(stop_time, experiment_data)

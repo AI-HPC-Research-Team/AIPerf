@@ -61,7 +61,7 @@ def main_grid(time, values, save_folder, filename):
         ax.yaxis.set_major_formatter(ymajorFormatter)
         plt.ylim(ymin - ygap, ymax + ygap)
 
-    plt.xlim(0, int(np.size(values))+2)
+    # plt.xlim(0, int(np.size(values))+2)
     
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
@@ -101,9 +101,9 @@ def main(args, save_folder):
 
     internal_log = save_log.display_log(results)
     logs += internal_log
-    logs += "--------------------------------------------------------------------\n"
-    logs += str(results)
     print(logs)
+    logs += str(results)
+    logs += "\n----------------------------------------------------------------------\n"
     with open(os.path.join(save_folder, 'results.txt'), 'w') as txtfile:
         txtfile.write(logs)
     return results, trial_id_list, experiment_data
