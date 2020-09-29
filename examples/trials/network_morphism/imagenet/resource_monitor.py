@@ -68,7 +68,7 @@ def write_file(path,content):
 
 
 def record_device_info():
-    npu_num = int(os.popen("npu-smi info -l | awk '{print $2}'").readlines()[0].strip('\n'))
+    npu_num = int(os.popen("npu-smi info -l | awk -F ':' '{print $2}'").readlines()[0].strip('\n'))
     #while((time.time() - start_time)/3600 < run_time):
     while True:
         cpu_core_context =str(psutil.cpu_percent(interval=1, percpu=True))
@@ -79,7 +79,7 @@ def record_device_info():
         write_file(log_path + '/mem_info.csv',str(int(mem)/1024)) #M
         for index in range(npu_num):
             file_name = str(index) + '.csv'
-            npu_com = "npu-smi info -t usages -i " + str(index) + " | awk 'print{$2}'"
+            npu_com = "npu-smi info -t usages -i " + str(index) + " | awk -F ':' '{print $2}'"
             npu_info = os.popen(npu_com).readlines()
             npu_util = float(npu_info[7].strip('\n'))
             npu_mem = float(npu_info[6].strip('\n'))
