@@ -455,12 +455,12 @@ sinfo
 
 ### <span id="head10"> 二、Benchmark测试规范</span>
 
-1. 经过多次8卡测试， 在6小时后正确率会开始收敛， 因此建议测试运行时间应不少于6小时；
-2. 测试用例的训练精度应不低于float16；
-3. 测试用例初始的 “batch size” ，建议设置为 Ascend910内存*8 ，eg：32G的内存，batch_size = 32 * 8；
-4. benchmark的算分机制在正确率大于等于65%才给出有效分数， 如果测试长时间达不到有效正确率(65%)，建议停止实验后调整训练参数(eg：batch size， learning rate)重新测试 。
+为了使结果有效，测试满足的基本条件是：
+1. 测试运行时间应不少于1小时；
+2. 测试的计算精度不低于FP-16；
+3. 测试完成时所取得的最高正确率应大于70%；
 
-#### 1、配置运行参数
+#### 1、初始化配置
 
 (以下操作均在master节点进行)
 
@@ -477,7 +477,7 @@ sinfo
 | 7    |       --batch_size        |           batch size            |    256    |
 | 8    |          --epochs         |         正常训练epoch数         |    60     |
 | 9    |       --initial_lr        |           初始学习率            |   1e-1    |
-| 10   |        --final_lr         |           最低学习率            |     0     |
+| 10   |        --final_lr         |           最终学习率            |     0     |
 | 11   |     --train_data_dir      |         训练数据集路径          |   None    |
 | 12   |      --val_data_dir       |         验证数据集路径          |   None    |
 | 13   |      --warmup_1        |    warm up机制第一轮epoch数     |       15        |
@@ -521,7 +521,7 @@ trial:
        --val_data_dir /home/data/val/ \ # 12
        --warmup_1 15 \   # 13
        --warmup_2 30 \   # 14
-       --warmup_3 45 \   # 15
+       --warmup_3 45     # 15
 
  codeDir: .
  gpuNum: 0
@@ -574,7 +574,7 @@ python3 /userhome/AIPerf/scripts/reports/report.py --id  experiment_ID
 
 同时会产生实验报告存放在experiment_ID的对应路径/root/mountdir/nni/experiments/experiment_ID/results目录下。实验成功时报告为 Report_Succeed.html；实验失败时报告为 Report_Failed.html；实验失败会报告失败原因，请查阅AI Benchmark测试规范分析失败原因。
 
-运行以下程序，可将实验产生的日志以及数据统一保存到 `/root/mountdir/nni/experiments/experiment_ID/results/logs` 中，便于实验分析
+运行以下程序，可将实验产生的日志以及数据统一保存到 `/userhome/mountdir/nni/experiments/experiment_ID/results/logs` 中，便于实验分析
 
 ```
 python3 /userhome/AIPerf/scripts/reports/report.py --id  experiment_ID  --logs True
@@ -586,23 +586,20 @@ python3 /userhome/AIPerf/scripts/reports/report.py --id  experiment_ID  --logs T
 
 #### 1、可变设置
 
-1. slave计算节点-NPU卡数调整：用户可自定义规定每个trial运行的硬件要求，根据自身平台特性，可以通过数据并行方式将整个计算节点集群作为一个trial的计算节点，也可以将slave计算节点上单个Ascend910作为一个trial的计算节点。
-2. 深度学习框架：建议使用mindspore，用户也可以根据测试平台特性，使用最适合的深度学习框架。
-3. 数据集加载方式：建议ImageNet原始数据集，用户也可以根据测试平台特性，调整数据加载策略。
-4. 数据集存储方式：目前默认存储在网络共享存储器上，用户可以根据测试平台特性，调整存储路径。
-6. 每个trial任务中的网络结构搜索次数：默认搜索次数为1次，用户可根据trial执行的耗时自定义网络结构搜索时间。
-7. 超参搜索空间：目前搜索空间只有convkernel size、dropout rate，用户可根据自身情况，增加超参搜索空间，调加如optimizer等超参数。
-8. 每个trial任务中网络结构的搜索次数：默认搜索次数30次，用户可根据测试平台特性，调整超参搜索次数。
+1. slave计算节点的GPU卡数：建议将单个物理服务器作为一个slave节点，并使用其所有GPU；
+2. 深度学习框架：建议使用keras+tensorflow；
+3. 数据集加载方式：建议将数据预处理成TFRecord格式，以加快数据加载的效率；
+4. 数据集存储方式：建议采用网络共享存储；
+5. 超参搜索：默认从第四轮trial开始，每个trial搜索1次，默认超参为kernel size和batch size。
 
 #### 2、推荐环境配置
 
-​		环境：Ubuntu18.04，docker=19.03.6，SLURM=17.11.2-1build1
+- 环境：Ubuntu18.04，docker=19.03.6，SLURM=17.11.2-1build1
 
-​		软件：mindspore-v0.5.1-beta，Ascend910，python3.7.5
+- 软件：mindspore-v0.5.1-beta，Ascend910，python3.7.5
 
-​        Container (master)：192 cores，755 GB memory
+- Container：192 cores，755 GB memory,  8NPUs
 
-​		Container (slave)：192 cores，755 GB memory,  8NPUs
 
 ***NOTE: 推荐基于Kunpeng920 Arm v8-A(192 cores) and Ascend910配置***
 
