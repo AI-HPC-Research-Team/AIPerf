@@ -25,7 +25,7 @@ tuner:
     n_output_node: 1000
 trial:
     command: NPU_NUM=8 \
-             srun -N 1 -n 1 --ntasks-per-node=1 --cpus-per-task=191 \
+             srun -N 1 -n 1 --ntasks-per-node=1 --cpus-per-task=192 \
              python3 imagenet_train.py \
              --slave 1 \
              --ip 172.17.0.2 \
