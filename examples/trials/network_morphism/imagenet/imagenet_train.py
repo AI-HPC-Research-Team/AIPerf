@@ -17,7 +17,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # -*-coding:utf-8-*-
-
 import argparse
 import logging
 import os
@@ -25,33 +24,26 @@ import time
 import zmq
 import random
 import json
-import multiprocessing
-import numpy as np
-import matplotlib.pyplot as plt
-from scipy.optimize import curve_fit
-from multiprocessing import Process, Queue
-
 import nni
 import nni.hyperopt_tuner.hyperopt_tuner as TPEtuner
+import multiprocessing
+from multiprocessing import Process, Queue
 
 import mindspore.nn as nn
 import mindspore.common.initializer as weight_init
 from mindspore import context as mds_context
 from mindspore import Tensor
-from mindspore import dataset as de
 from mindspore.parallel._auto_parallel_context import auto_parallel_context
 from mindspore.nn.optim.momentum import Momentum
 from mindspore.train.model import Model, ParallelMode
 from mindspore.train.callback import Callback, LossMonitor, TimeMonitor
-from mindspore.nn.loss import SoftmaxCrossEntropyWithLogits
 from mindspore.train.loss_scale_manager import FixedLossScaleManager
 from mindspore.communication.management import init
-
+from mindspore.common import set_seed
 import utils
 from dataset import create_dataset2 as create_dataset
-from crossentropy import CrossEntropy
+from CrossEntropySmooth import CrossEntropySmooth
 from lr_generator import get_lr, warmup_cosine_annealing_lr
-
 
 # set the logger format
 log_format = "%(asctime)s %(message)s"
@@ -79,7 +71,6 @@ TENSORBOARD_DIR = os.environ["NNI_OUTPUT_DIR"]
 def get_args():
     """ get args from command line
     """
-
     parser = argparse.ArgumentParser("imagenet")
     parser.add_argument("--ip", type=str, default='127.0.0.1', help="ip address")
     parser.add_argument("--train_data_dir", type=str, default=None, help="tain data directory")
@@ -175,9 +166,7 @@ def mds_train_eval(q, hyper_params, receive_config, dataset_path_train, dataset_
     '''
     t0 = time.time()
 
-    random.seed(1)
-    np.random.seed(1)
-    de.config.set_seed(1)
+    set_seed(1)
     target = 'Ascend'
 
     import socket as sck
@@ -185,17 +174,17 @@ def mds_train_eval(q, hyper_params, receive_config, dataset_path_train, dataset_
     if os.path.exists(kernel_meta_file):
         pass
     else:
-        #os.system("rm -rf " + str(kernel_meta_file))
         os.system("mkdir " + str(kernel_meta_file))
-    os.chdir(str(kernel_meta_file))
+        os.chdir(str(kernel_meta_file))
 
     print('++++  container: {}'.format(sck.gethostname()))
 
     # init context
     mds_context.set_context(mode=mds_context.GRAPH_MODE, device_target=target, save_graphs=False)
     mds_context.set_context(device_id=device_id)
-    os.environ['MINDSPORE_HCCL_CONFIG_PATH'] = '/userhome/rank_table_{}pcs.json'.format(device_num)
-    os.environ['RANK_TABLE_FILE'] = '/userhome/rank_table_{}pcs.json'.format(device_num)
+    mds_context.set_context(max_call_depth=2000)
+
+    os.environ['RANK_TABLE_FILE'] = os.environ['RANK_TABLE']
     os.environ['RANK_ID'] = str(device_id)
     os.environ['RANK_SIZE'] = str(device_num)
     os.environ['DEVICE_ID'] = str(device_id)
@@ -203,14 +192,14 @@ def mds_train_eval(q, hyper_params, receive_config, dataset_path_train, dataset_
 
     if enable_hccl:
         mds_context.set_context(device_id=device_id, enable_auto_mixed_precision=True)
-        mds_context.set_auto_parallel_context(device_num=device_num, parallel_mode=ParallelMode.DATA_PARALLEL, mirror_mean=True)
-        auto_parallel_context().set_all_reduce_fusion_split_indices([107, 160])
+        mds_context.set_auto_parallel_context(device_num=device_num, parallel_mode=ParallelMode.DATA_PARALLEL, gradients_mean=True)
+        auto_parallel_context().set_all_reduce_fusion_split_indices([85, 160])
         init()
 
     t1 = time.time()
     # create dataset
-    dataset_train = create_dataset(dataset_path=dataset_path_train, do_train=True, repeat_num=epoch_size, batch_size=batch_size, target=target)
-    dataset_val = create_dataset(dataset_path=dataset_path_val, do_train=False, repeat_num=epoch_size+1, batch_size=32)
+    dataset_train = create_dataset(dataset_path=dataset_path_train, do_train=True, repeat_num=1, batch_size=batch_size, target=target)
+    dataset_val = create_dataset(dataset_path=dataset_path_val, do_train=False, repeat_num=1, batch_size=32, target=target)
     t2 = time.time()
     step_size = dataset_train.get_dataset_size()
     t3 = time.time()
@@ -222,28 +211,37 @@ def mds_train_eval(q, hyper_params, receive_config, dataset_path_train, dataset_
     # init weight
     for _, cell in net.cells_and_names():
         if isinstance(cell, nn.Conv2d):
-            cell.weight.default_input = weight_init.initializer(
-                                            weight_init.XavierUniform(),
-                                            cell.weight.default_input.shape,
-                                            cell.weight.default_input.dtype).to_tensor()
+            cell.weight.set_data(weight_init.initializer(weight_init.XavierUniform(),
+                                                        cell.weight.shape,
+                                                        cell.weight.dtype))
         if isinstance(cell, nn.Dense):
-            cell.weight.default_input = weight_init.initializer(
-                                            weight_init.TruncatedNormal(),
-                                            cell.weight.default_input.shape,
-                                            cell.weight.default_input.dtype).to_tensor()
+            cell.weight.set_data(weight_init.initializer(weight_init.TruncatedNormal(),
+                                                        cell.weight.shape,
+                                                        cell.weight.dtype))
     t5 = time.time()
 
     # init lr
-    lr = get_lr(lr_init=0.0, lr_end=0.0, lr_max=0.1, warmup_epochs=0,
-                total_epochs=epoch_size, steps_per_epoch=step_size, lr_decay_mode='cosine')
+    lr = get_lr(lr_init=0.0, lr_end=0.0, lr_max=0.8, warmup_epochs=0,
+                total_epochs=epoch_size, steps_per_epoch=step_size, lr_decay_mode='linear')
     lr = Tensor(lr)
 
     # define opt
-    opt = Momentum(filter(lambda x: x.requires_grad, net.get_parameters()), lr, momentum=0.9,
-                   weight_decay=1e-4, loss_scale=1024)
+    decayed_params = []
+    no_decayed_params = []
+    for param in net.trainable_params():
+        if 'beta' not in param.name and 'gamma' not in param.name and 'bias' not in param.name:
+            decayed_params.append(param)
+        else:
+            no_decayed_params.append(param)
+
+    group_params = [{'params': decayed_params, 'weight_decay': 1e-4},
+                    {'params': no_decayed_params},
+                    {'order_params': net.trainable_params()}]
+    opt = Momentum(group_params, lr, 0.9, loss_scale=1024)
 
     # define loss, model
-    loss = CrossEntropy(smooth_factor=0.1, num_classes=1001)
+    loss = CrossEntropySmooth(sparse=True, reduction="mean",
+                              smooth_factor=0.1, num_classes=1001)
     loss_scale = FixedLossScaleManager(loss_scale=1024, drop_overflow_update=False)
 
     t6 = time.time()
@@ -311,7 +309,12 @@ def train_eval_distribute(hyper_params, receive_config, trial_id, hp_path):
                                args=(q, hyper_params, receive_config, args.train_data_dir, args.val_data_dir, 
                                    epoch_size, batch_size, hp_path, device_id, device_num, enable_hccl)))
     for i in range(device_num):
+        start = i*23
+        end = start + 22
+        cpu_str = str(start) + '-' + str(end)
         process[i].start()
+        pid = process[i].pid
+        os.system("taskset -p -c %s %d"% (cpu_str, pid))
 
     print("Waiting for all subprocesses done...")
 
