@@ -216,9 +216,9 @@ def preprocess_image(image_buffer, output_height, output_width,
     image = tf.cast(image, dtype=tf.float32)
     
     image /= 255.
-    image = tf.image.random_brightness(image, max_delta=32. / 255.)
-    image = tf.image.random_saturation(image, lower=0.6, upper=1.4)
-    image = tf.image.random_hue(image, max_delta=0.2)
+    # image = tf.image.random_brightness(image, max_delta=32. / 255.)
+    # image = tf.image.random_saturation(image, lower=0.6, upper=1.4)
+    # image = tf.image.random_hue(image, max_delta=0.2)
     
     #image = np.random.normal(loc=0.0, scale=0.1, size=None)
     
