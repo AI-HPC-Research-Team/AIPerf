@@ -77,7 +77,7 @@ def main(args, save_folder):
     main_grid(results['real_time'], results['PFLOPS'], save_folder, 'Score (in PFLOPS).png')
     main_grid(results['real_time'], results['Error'], save_folder, 'Error(%).png')
     main_grid(results['real_time'], results['Score'], save_folder, 'Regulated Score (in PFLOPS).png')
-    errorth = 35.0
+    errorth = 30.0
     timeth = 1
 
     logs = "======================================================================\n"
