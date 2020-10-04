@@ -46,20 +46,20 @@ def main_grid(time, values, save_folder, filename):
     # xmajorFormatter = FormatStrFormatter('%1d')
     # ax.xaxis.set_major_locator(xmajorLocator)
     # ax.xaxis.set_major_formatter(xmajorFormatter)
-    ymax = np.max(values)
-    ymin = np.min(values)
-    ygap = (ymax - ymin) / 10.
-    if ygap > 0.001 and np.size(values) > 1:
-        ymajorLocator = MultipleLocator(ygap)
-        if ygap > 10:
-            ymajorFormatter = FormatStrFormatter('%1.0f')
-        elif ygap > 1:
-            ymajorFormatter = FormatStrFormatter('%1.1f')
-        else:
-            ymajorFormatter = FormatStrFormatter('%1.2f')
-        ax.yaxis.set_major_locator(ymajorLocator)
-        ax.yaxis.set_major_formatter(ymajorFormatter)
-        plt.ylim(ymin - ygap, ymax + ygap)
+    # ymax = np.max(values)
+    # ymin = np.min(values)
+    # ygap = (ymax - ymin) / 10.
+    # if ygap > 0.001 and np.size(values) > 1:
+    #     ymajorLocator = MultipleLocator(ygap)
+    #     if ygap > 10:
+    #         ymajorFormatter = FormatStrFormatter('%1.0f')
+    #     elif ygap > 1:
+    #         ymajorFormatter = FormatStrFormatter('%1.1f')
+    #     else:
+    #         ymajorFormatter = FormatStrFormatter('%1.2f')
+    #     ax.yaxis.set_major_locator(ymajorLocator)
+    #     ax.yaxis.set_major_formatter(ymajorFormatter)
+    #     plt.ylim(ymin - ygap, ymax + ygap)
 
     # plt.xlim(0, int(np.size(values))+2)
     
@@ -73,9 +73,9 @@ def main_grid(time, values, save_folder, filename):
 
 def main(args, save_folder):
     results, trial_id_list, experiment_data = score.cal_report_results(args.id)
-    main_grid(results['real_time'], results['PFLOPS'], save_folder, 'Score (in PFLOPS).png')
+    main_grid(results['real_time'], results['GFLOPS'], save_folder, 'Score (in GFLOPS).png')
     main_grid(results['real_time'], results['Error'], save_folder, 'Error(%).png')
-    main_grid(results['real_time'], results['Score'], save_folder, 'Regulated Score (in PFLOPS).png')
+    main_grid(results['real_time'], results['Score'], save_folder, 'Regulated Score (in GFLOPS).png')
     errorth = 30.0
     timeth = 1
     logs = "======================================================================\n"
@@ -85,19 +85,11 @@ def main(args, save_folder):
         logs += "!!! Test failed without running enough time !!!\n"
 
     if len(results['real_time']) > timeth:
-        avepflops = np.mean(np.array(results['PFLOPS'], dtype='float32')[timeth:])
-        #logs += "Average Score (" + str(timeth) + "H - " + str(len(results['real_time'])) + "H) : " + str(avepflops) + ' PFLOPS\n'
-        logs += "Final Score : " + str(max(np.array(results['PFLOPS']))) + ' PFLOPS\n'
-        avescore = np.mean(np.array(results['Score'], dtype='float32')[timeth:])
-        #logs += "Average Regulated Score (" + str(timeth) + "H - " + str(len(results['real_time'])) + "H) : " + str(avescore) + ' PFLOPS\n'
-        logs += "Final Regulated Score : " + str(max(np.array(results['Score']))) + ' PFLOPS\n'
+        logs += "Final Score : " + str(max(np.array(results['GFLOPS']))) + ' GFLOPS\n'
+        logs += "Final Regulated Score : " + str(max(np.array(results['Score']))) + ' GFLOPS\n'
     else:
-        avepflops = 0
-        #logs += "Average Score (" + str(timeth) + "H - ~H) : " + str(avepflops) + ' PFLOPS\n'
-        logs += "Final Score : " + str(max(np.array(results['PFLOPS']))) + ' PFLOPS\n'
-        avescore = 0
-        #logs += "Average Regulated Score (" + str(timeth) + "H - ~H) : " + str(avescore) + ' PFLOPS\n'
-        logs += "Final Regulated Score : " + str(max(np.array(results['Score']))) + ' PFLOPS\n'
+        logs += "Final Score : " + str(max(np.array(results['GFLOPS']))) + ' GFLOPS\n'
+        logs += "Final Regulated Score : " + str(max(np.array(results['Score']))) + ' GFLOPS\n'
 
     internal_log = save_log.display_log(results)
     logs += internal_log
