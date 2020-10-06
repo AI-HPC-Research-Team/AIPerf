@@ -39,6 +39,7 @@ def get_args():
 def main_grid(time, values, save_folder, filename):
     time = np.array(time, dtype='float32')
     values = np.array(values, dtype='float32')
+    plt.figure(figsize=(12, 6))
     ax = plt.subplot(1,1,1)
     plt.plot(time, values, linewidth = '1.0',color='blue',marker='.') #'darkgoldenrod','slateblue','aqua','red','black'
     font = {'family':'DejaVu Sans', 'weight':'normal', 'size':12}
