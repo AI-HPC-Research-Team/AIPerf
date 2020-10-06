@@ -24,6 +24,10 @@ import numpy as np
 import os
 import save_log
 import gen_report
+from matplotlib.ticker import FuncFormatter
+def formatnum(x, pos):
+    return '$%.1f$x$10^{5}$' % (x/100000)
+formatter = FuncFormatter(formatnum)
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -34,34 +38,16 @@ def get_args():
 def main_grid(time, values, save_folder, filename):
     time = np.array(time, dtype='float32')
     values = np.array(values, dtype='float32')
+    plt.figure(figsize=(12, 6))
     ax = plt.subplot(1,1,1)
     plt.plot(time, values, linewidth = '1.0',color='blue',marker='.') #'darkgoldenrod','slateblue','aqua','red','black'
     font = {'family':'DejaVu Sans', 'weight':'normal', 'size':12}
     plt.tick_params(labelsize=12)
     plt.xlabel('Hours',font)
+    if filename == 'Score (in GFLOPS).png' or filename == 'Regulated Score (in GFLOPS).png':
+        plt.gca().yaxis.set_major_formatter(formatter)
     plt.ylabel(filename.split('.')[0],font)
     plt.grid(axis="y")
-
-    # xmajorLocator = MultipleLocator(1)
-    # xmajorFormatter = FormatStrFormatter('%1d')
-    # ax.xaxis.set_major_locator(xmajorLocator)
-    # ax.xaxis.set_major_formatter(xmajorFormatter)
-    # ymax = np.max(values)
-    # ymin = np.min(values)
-    # ygap = (ymax - ymin) / 10.
-    # if ygap > 0.001 and np.size(values) > 1:
-    #     ymajorLocator = MultipleLocator(ygap)
-    #     if ygap > 10:
-    #         ymajorFormatter = FormatStrFormatter('%1.0f')
-    #     elif ygap > 1:
-    #         ymajorFormatter = FormatStrFormatter('%1.1f')
-    #     else:
-    #         ymajorFormatter = FormatStrFormatter('%1.2f')
-    #     ax.yaxis.set_major_locator(ymajorLocator)
-    #     ax.yaxis.set_major_formatter(ymajorFormatter)
-    #     plt.ylim(ymin - ygap, ymax + ygap)
-
-#     plt.xlim(0, int(np.size(values))+2)
     
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
