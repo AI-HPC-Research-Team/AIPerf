@@ -568,10 +568,10 @@ mv ILSVRC2012/output/validation-* /userhome/datasets/imagenet/val
 | 1    |     trialConcurrency     |        同时运行的trial数        |        1        |
 | 2    |     maxExecDuration      |     设置测试时间(单位 ：h)      |       12        |
 | 3    |   CUDA_VISIBLE_DEVICES   |    指定测试程序可用的gpu索引    | 0,1,2,3,4,5,6,7 |
-| 4    | srun：--cpus-per-task=23 |   参数为slurm可用cpu核数减 1    |       23        |
+| 4    | srun：--cpus-per-task=30 |   参数为slurm可用cpu核数减 1    |       30        |
 | 5    |         --slave          | 跟 trialConcurrency参数保持一致 |        1        |
 | 6    |           --ip           |          master节点ip           |    127.0.0.1    |
-| 7    |       --batch_size       |           batch size            |       256       |
+| 7    |       --batch_size       |           batch size            |       448       |
 | 8    |         --epochs         |         正常训练epoch数         |       60        |
 | 9    |       --initial_lr       |           初始学习率            |      1e-1       |
 | 10   |        --final_lr        |           最终学习率            |        0        |
@@ -606,11 +606,11 @@ tuner:
 trial:
  command: CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7  \                                  # 3
        srun -N 1 -n 1 --ntasks-per-node=1 \
-       --cpus-per-task=23 \	  # 4
+       --cpus-per-task=30 \	  # 4
        python3 imagenet_tfkeras_slurm_hpo.py \
        --slave 1 \								  # 5
        --ip 127.0.0.1 \							  # 6
-       --batch_size 256 \						  # 7
+       --batch_size 448 \						  # 7
        --epoch 60 \						          # 8
        --initial_lr 1e-1 \						  # 9
        --final_lr 0 \						  # 10

@@ -22,11 +22,11 @@ tuner:
     n_output_node: 1000
 trial:
   command: CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 \
-           srun -N 1 -n 1 --ntasks-per-node=1 --cpus-per-task=23 \
+           srun -N 1 -n 1 --ntasks-per-node=1 --cpus-per-task=30 \
            python3 imagenet_train.py \
            --slave 14 \
            --ip 10.133.75.11 \
-           --batch_size 256 \
+           --batch_size 448 \
            --num_parallel_calls 48 \
            --train_data_dir /gdata/ILSVRC2012/ImageNet-Tensorflow/train_tfrecord \
            --val_data_dir /gdata/ILSVRC2012/ImageNet-Tensorflow/validation_tfrecord 
