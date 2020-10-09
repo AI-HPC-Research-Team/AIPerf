@@ -82,7 +82,7 @@ def cal_maxpool_flops(input_size, kernel_size, stride):
     return fwflops, params, bwflops
 
 def cal_avgpool_flops(input_size):
-    fwflops = (input_size[0] * input_size[1] - 1) * input_size[2] * coeff['add'] + input_size[2] * coeff['mul']
+    fwflops = (input_size[0] * input_size[1] - 1) * input_size[2] * coeff['add'] + input_size[2] * coeff['div']
     params = 0
 
     fwflops *= image_num
