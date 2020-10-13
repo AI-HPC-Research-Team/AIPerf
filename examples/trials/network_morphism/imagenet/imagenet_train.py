@@ -27,7 +27,7 @@ import json
 import nni
 import nni.hyperopt_tuner.hyperopt_tuner as TPEtuner
 import multiprocessing
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, RLock
 
 import mindspore.nn as nn
 import mindspore.common.initializer as weight_init
@@ -124,14 +124,14 @@ def write_result_to_json(hp_path, epoch_size, acc):
 
 
 class Accuracy(Callback):
-    def __init__(self, model, dataset_val, device_id, epoch_size, data_size, file_path=''):
+    def __init__(self, model, dataset_val, device_id, epoch_size, data_size, ms_lock):
         super(Accuracy, self).__init__()
         self.model = model
         self.dataset_val = dataset_val
         self.device_id = device_id
         self.epoch_size = epoch_size
         self.data_size = data_size
-        self.file_path = file_path
+        self.ms_lock = ms_lock
 
     def epoch_begin(self, run_context):
         self.epoch_time = time.time()
@@ -143,18 +143,22 @@ class Accuracy(Callback):
         epoch_mseconds = (time.time() - self.epoch_time) * 1000
         per_step_mseconds = epoch_mseconds / self.data_size
 
+        self.ms_lock.acquire()
         print("[Device {}] Epoch {}/{}, train time: {:5.3f}, per step time: {:5.3f}, loss: {}".format(
             self.device_id, epoch_num, self.epoch_size, epoch_mseconds, per_step_mseconds, loss), flush=True)
+        self.ms_lock.release()
 
         cur_time = time.time()
         acc = self.model.eval(self.dataset_val)['acc']
         val_time = int(time.time() - cur_time)
 
+        self.ms_lock.acquire()
         print("[Device {}] Epoch {}/{}, EvalAcc:{}, EvalTime {}s".format(
                 self.device_id, epoch_num, self.epoch_size, acc, val_time), flush=True)
+        self.ms_lock.release()
 
 
-def mds_train_eval(q, hyper_params, receive_config, dataset_path_train, dataset_path_val, epoch_size, batch_size, hp_path, device_id, device_num, enable_hccl):
+def mds_train_eval(q, hyper_params, receive_config, dataset_path_train, dataset_path_val, epoch_size, batch_size, hp_path, device_id, device_num, enable_hccl, ms_lock):
     '''
     net:
     dataset_path_train:
@@ -164,21 +168,19 @@ def mds_train_eval(q, hyper_params, receive_config, dataset_path_train, dataset_
     hp_path:
 
     '''
-    t0 = time.time()
-
     set_seed(1)
     target = 'Ascend'
 
     import socket as sck
     kernel_meta_file = sck.gethostname() + '_' + str(device_id)
     if os.path.exists(kernel_meta_file):
-        pass
+        os.system("rm -rf " + str(kernel_meta_file))
     else:
         os.system("mkdir " + str(kernel_meta_file))
         os.chdir(str(kernel_meta_file))
-
+    ms_lock.acquire()
     print('++++  container: {}'.format(sck.gethostname()))
-
+    ms_lock.release()
     # init context
     mds_context.set_context(mode=mds_context.GRAPH_MODE, device_target=target, save_graphs=False)
     mds_context.set_context(device_id=device_id)
@@ -196,17 +198,13 @@ def mds_train_eval(q, hyper_params, receive_config, dataset_path_train, dataset_
         auto_parallel_context().set_all_reduce_fusion_split_indices([85, 160])
         init()
 
-    t1 = time.time()
     # create dataset
     dataset_train = create_dataset(dataset_path=dataset_path_train, do_train=True, repeat_num=1, batch_size=batch_size, target=target)
     dataset_val = create_dataset(dataset_path=dataset_path_val, do_train=False, repeat_num=1, batch_size=32, target=target)
-    t2 = time.time()
     step_size = dataset_train.get_dataset_size()
-    t3 = time.time()
 
     # build net
     net = build_graph_from_json(receive_config, hyper_params)
-    t4 = time.time()
 
     # init weight
     for _, cell in net.cells_and_names():
@@ -218,7 +216,6 @@ def mds_train_eval(q, hyper_params, receive_config, dataset_path_train, dataset_
             cell.weight.set_data(weight_init.initializer(weight_init.TruncatedNormal(),
                                                         cell.weight.shape,
                                                         cell.weight.dtype))
-    t5 = time.time()
 
     # init lr
     lr = get_lr(lr_init=0.0, lr_end=0.0, lr_max=0.8, warmup_epochs=0,
@@ -244,20 +241,14 @@ def mds_train_eval(q, hyper_params, receive_config, dataset_path_train, dataset_
                               smooth_factor=0.1, num_classes=1001)
     loss_scale = FixedLossScaleManager(loss_scale=1024, drop_overflow_update=False)
 
-    t6 = time.time()
-
     model = Model(net, loss_fn=loss, optimizer=opt, loss_scale_manager=loss_scale, metrics={'acc'},
                   amp_level="O2", keep_batchnorm_fp32=False)
 
     # define callbacks
-    acc_cb = Accuracy(model, dataset_val, device_id, epoch_size, step_size)
+    acc_cb = Accuracy(model, dataset_val, device_id, epoch_size, step_size, ms_lock)
     cb = [acc_cb]
 
-    t7 = time.time()
-    print("[Device {}] Init env: {:5.3f}, Load data: {:5.3f}, Get dataset_size: {:5.3f}, Json2graph: {:5.3f}, Init model paras: {:5.3f}, Lr-opt-loss: {:5.3f}, Build model: {:5.3f}, Total: {:5.3f}" \
-            .format(device_id, t1-t0, t2-t1, t3-t2, t4-t3, t5-t4, t6-t5, t7-t6, t7-t0))
-
-    # train model
+     # train model
     model.train(epoch_size, dataset_train, callbacks=cb, dataset_sink_mode=True)
 
     # evaluation model
@@ -301,13 +292,13 @@ def train_eval_distribute(hyper_params, receive_config, trial_id, hp_path):
     batch_size = (int(hyper_params['batch_size']) // 16) * 16
     enable_hccl = True
     process = []
-
+    ms_lock = RLock()
     # distribute training ...
     for i in range(device_num):
         device_id = i
         process.append(Process(target=mds_train_eval,
                                args=(q, hyper_params, receive_config, args.train_data_dir, args.val_data_dir, 
-                                   epoch_size, batch_size, hp_path, device_id, device_num, enable_hccl)))
+                                   epoch_size, batch_size, hp_path, device_id, device_num, enable_hccl, ms_lock)))
     for i in range(device_num):
         start = i*12
         end = start + 11
