@@ -262,7 +262,7 @@ def mds_train_eval(q, hyper_params, receive_config, dataset_path_train, dataset_
 
     # evaluation model
     acc = model.eval(dataset_val)['acc']
-    q.put({'acc':acc})
+    q.put({'acc': acc})
 
 
 def train_eval_distribute(hyper_params, receive_config, trial_id, hp_path):
@@ -309,8 +309,8 @@ def train_eval_distribute(hyper_params, receive_config, trial_id, hp_path):
                                args=(q, hyper_params, receive_config, args.train_data_dir, args.val_data_dir, 
                                    epoch_size, batch_size, hp_path, device_id, device_num, enable_hccl)))
     for i in range(device_num):
-        start = i*23
-        end = start + 22
+        start = i*12
+        end = start + 11
         cpu_str = str(start) + '-' + str(end)
         process[i].start()
         pid = process[i].pid
@@ -327,7 +327,10 @@ def train_eval_distribute(hyper_params, receive_config, trial_id, hp_path):
     # get acc result
     acc = 0
     for i in range(device_num):
-        output = q.get()
+        try:
+            output = q.get(block=False)
+        except Queue.Empty:
+            print('MindSpore train failed')
         acc += output['acc']
     acc = acc / device_num
 
