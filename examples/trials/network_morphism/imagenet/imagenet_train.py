@@ -70,7 +70,7 @@ def get_args():
     parser.add_argument("--train_data_dir", type=str, default=None, help="tain data directory")
     parser.add_argument("--val_data_dir", type=str, default=None, help="val data directory")
     parser.add_argument("--slave", type=int, default=2, help="trial concurrency")
-    parser.add_argument("--batch_size", type=int, default=256, help="batch size")
+    parser.add_argument("--batch_size", type=int, default=448, help="batch size")
     parser.add_argument("--warmup_1", type=int, default=15, help="epoch of first warm up round")
     parser.add_argument("--warmup_2", type=int, default=30, help="epoch of second warm up round")
     parser.add_argument("--warmup_3", type=int, default=45, help="epoch of third warm up round")
