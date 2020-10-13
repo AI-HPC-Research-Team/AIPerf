@@ -175,9 +175,8 @@ def mds_train_eval(q, hyper_params, receive_config, dataset_path_train, dataset_
     kernel_meta_file = sck.gethostname() + '_' + str(device_id)
     if os.path.exists(kernel_meta_file):
         os.system("rm -rf " + str(kernel_meta_file))
-    else:
-        os.system("mkdir " + str(kernel_meta_file))
-        os.chdir(str(kernel_meta_file))
+    os.system("mkdir " + str(kernel_meta_file))
+    os.chdir(str(kernel_meta_file))
     ms_lock.acquire()
     print('++++  container: {}'.format(sck.gethostname()))
     ms_lock.release()
