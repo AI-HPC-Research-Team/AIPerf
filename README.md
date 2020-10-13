@@ -162,17 +162,25 @@ touch /userhome/test
 
 **物理机下载基础镜像**
 
+针对NVIDIA V100
 ```
 docker pull nvidia/cuda:10.1-cudnn7-devel-ubuntu16.04
+```
+针对NVIDIA A100
+```
+docker pull nvidia/cuda:11.1-cudnn8-devel-ubuntu16.04
 ```
 
 **启动容器**
 
+针对NVIDIA V100
 ```
 nvidia-docker run -it --name build_AIPerf -v /userhome:/userhome nvidia/cuda:10.1-cudnn7-devel-ubuntu16.04
 ```
-
-
+针对NVIDIA A100
+```
+nvidia-docker run -it --name build_AIPerf -v /userhome:/userhome nvidia/cuda:11.1-cudnn8-devel-ubuntu16.04
+```
 
 #### <span id="head7"> 2.容器制作</span>
 
@@ -542,13 +550,13 @@ mkdir -p ILSVRC2012/output
 python build_imagenet_data.py --train_directory=ILSVRC2012/raw-data/imagenet-data/train --validation_directory=ILSVRC2012/raw-data/imagenet-data/validation --output_directory=ILSVRC2012/output --imagenet_metadata_file=imagenet_metadata.txt --labels_file=imagenet_lsvrc_2015_synsets.txt
 ```
 
-上面步骤执行完后，路径ILSVRC2012/output包含128个validation开头的验证集文件和1024个train开头的训练集文件。需要分别将验证集和数据集移动到共享目录/userhome/datasets/imagenet对应路径下
+上面步骤执行完后，路径ILSVRC2012/output包含128个validation开头的验证集文件和1024个train开头的训练集文件。需要分别将验证集和数据集移动到共享目录/root/datasets/imagenet对应路径下
 
 ```
-mkdir -p /userhome/datasets/imagenet/train
-mkdir -p /userhome/datasets/imagenet/val
-mv ILSVRC2012/output/train-* /userhome/datasets/imagenet/train
-mv ILSVRC2012/output/validation-* /userhome/datasets/imagenet/val
+mkdir -p /root/datasets/imagenet/train
+mkdir -p /root/datasets/imagenet/val
+mv ILSVRC2012/output/train-* /root/datasets/imagenet/train
+mv ILSVRC2012/output/validation-* /root/datasets/imagenet/val
 ```
 
 ### <span id="head10"> 二、Benchmark测试规范</span>
