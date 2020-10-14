@@ -299,12 +299,7 @@ def train_eval_distribute(hyper_params, receive_config, trial_id, hp_path):
                                args=(q, hyper_params, receive_config, args.train_data_dir, args.val_data_dir, 
                                    epoch_size, batch_size, hp_path, device_id, device_num, enable_hccl, ms_lock)))
     for i in range(device_num):
-        start = i*12
-        end = start + 11
-        cpu_str = str(start) + '-' + str(end)
         process[i].start()
-        pid = process[i].pid
-        os.system("taskset -p -c %s %d"% (cpu_str, pid))
 
     print("Waiting for all subprocesses done...")
 
