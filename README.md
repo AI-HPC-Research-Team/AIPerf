@@ -604,7 +604,7 @@ python3 /userhome/AIPerf/scripts/reports/report.py --id  experiment_ID  --logs T
 2. 深度学习框架：默认使用keras+tensorflow；
 3. 数据集加载方式：默认将数据预处理成TFRecord格式，以加快数据加载的效率；
 4. 数据集存储方式：默认采用网络共享存储；
-5. 超参设置：默认初始batch size=256，默认初始学习率=0.1，默认最终学习率=0，默认正常训练epochs=60，默认从第四轮trial开始，每个trial搜索1次，默认超参为kernel size和batch size。
+5. 超参设置：默认初始batch size=448，默认初始学习率=0.1，默认最终学习率=0，默认正常训练epochs=60，默认从第四轮trial开始，每个trial搜索1次，默认超参为kernel size和batch size。
 
 #### <span id="head16"> 推荐环境配置</span>
 
