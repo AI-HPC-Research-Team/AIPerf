@@ -327,34 +327,6 @@ wget -P /userhome https://github.com/fchollet/deep-learning-models/releases/down
 ```
 
 
-
-**资源监控模块**
-
-*resource_monitor(必须)*
-
-resource_monitor.py监控程序源码需跟用例源码放在同级目录(AIPerf/examples/trials/network_morphism/imagenet)即可，在启动AIPerf时自动在每个slave节点启动，并将测试过程中的cpu、内存、GPU的信息记录在 /userhome/mountdir/device_info/experiments/experiment_ID目录下，请注意在后面进行运行参数配置修改/userhome/AIPerf/examples/trials/network_morphism/imagenet/config.yml文件时，需要将command行的srun参数 --cpus-per-task 设置成当前可用cpu减1(安装slurm时有提示)，slurm需要空出一个CPU运行resource_monitor.py监控程序。
-
-*prometheus&grafana(可选)*
-
-资源监控程序使用prometheus收集硬件资源信息，通过grafana将各节点收集到的信息图形化显示在web UI上，有助于在测试过程中对硬件资源使用的实时监控、发现性能瓶颈。
-
-prometheus官方网站: https://prometheus.io
-
-grafana官方网站: https://grafana.com
-
-nvidia官方网站: https://www.nvidia.cn
-
-*安装监控插件*
-
-注意： 所有监控依赖的安装包下载至路径脚本当前路径的.monitortmp文件夹下，可以直接在浏览器下载好之后拷贝到当前路径，提供百度云下载地址：链接：https://pan.baidu.com/s/186bIuqaguoT9j31q-s10wg
-提取码：94be。
-
-```
-cd  AIPerf/scripts/monitor
-bash monitor_slave_run_nodeexporter.sh -i 安装路径
-bash monitor_slave_run_dcgmexporter.sh -i 安装路径
-```
-
 #### <span id="head8"> 3.容器部署</span>
 
 (物理机执行)
