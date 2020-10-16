@@ -608,7 +608,7 @@ python3 /userhome/AIPerf/scripts/reports/report.py --id  experiment_ID  --logs T
 
 #### <span id="head16"> 推荐环境配置</span>
 
-- 环境：Ubuntu16.04，docker=18.09.9，SLURM=v20.02
+- 环境：Ubuntu16.04，docker=18.09.9，SLURM=v15.08.7
 
 - 软件：TensorFlow2.2.0，CUDA10.1，python3.5
 - Container：36个物理CPU核，512GB内存，8张GPU
