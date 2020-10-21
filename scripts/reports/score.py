@@ -250,7 +250,7 @@ def find_startime(trial_id_list, t, experiment_path):
 def process_log(trial_id_list, experiment_data, dur, experiment_path):
     results = {}
     results['real_time'] = []
-    results['PFLOPS'] = []
+    results['GFLOPS'] = []
     results['Error'] = []
     results['Score'] = []
 
@@ -284,12 +284,12 @@ def process_log(trial_id_list, experiment_data, dur, experiment_path):
             else:
                 faild_trial.append(trial_id)
         fraction = float(float(total_FLOPs) * float(abs(math.log(1-max_acc,math.e)))) / float(run_sec)
-        fraction = fraction / (10**15)
+        fraction = fraction / (10**9)
 
         results['real_time'].append('{:.2f}'.format(run_sec / 3600.))
-        results['PFLOPS'].append('{:.4f}'.format(float(total_FLOPs) / float(run_sec) / (10**15)))
+        results['GFLOPS'].append('{:.1f}'.format(float(total_FLOPs) / float(run_sec) / (10**9)))
         results['Error'].append('{:.2f}'.format(100 - max_acc * 100))
-        results['Score'].append('{:.4f}'.format(fraction))
+        results['Score'].append('{:.1f}'.format(fraction))
     return results
 
 def cal_report_results(expid):

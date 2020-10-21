@@ -35,7 +35,7 @@ trial:
              --epochs 60 \
              --warmup_1 15 \   
              --warmup_2 30 \   
-             --warmup_3 45 
+             --warmup_3 45
              
     codeDir: .
     gpuNum: 0
