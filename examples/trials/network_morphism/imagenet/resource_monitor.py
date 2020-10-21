@@ -71,22 +71,24 @@ def record_device_info():
     npu_num = int(os.popen("npu-smi info -l | awk -F ':' '{print $2}'").readlines()[0].strip('\n'))
     #while((time.time() - start_time)/3600 < run_time):
     while True:
-        cpu_core_context =str(psutil.cpu_percent(interval=1, percpu=True))
-        write_file(log_path + '/cpu_core_info.csv',cpu_core_context)
-        cpu = os.popen("export TERM=linux && top -bn 2|grep Cpu\(s\)|awk '{print $2+$4}'").readlines()[1].strip()
-        write_file(log_path + '/cpu_info.csv',cpu)
-        mem = os.popen("export TERM=linux && free |grep -E 'Mem:' |awk '{print $3}' ").readline().strip()
-        write_file(log_path + '/mem_info.csv',str(int(mem)/1024)) #M
-        for index in range(npu_num):
-            file_name = str(index) + '.csv'
-            npu_com = "npu-smi info -t usages -i " + str(index) + " | awk -F ':' '{print $2}'"
-            npu_info = os.popen(npu_com).readlines()
-            npu_util = float(npu_info[7].strip('\n'))
-            npu_mem = float(npu_info[6].strip('\n'))
-            npu_all = float(npu_info[5].strip('\n'))
-            content = str(npu_util) + "," + str(npu_mem) + "," + str(npu_all)
-            write_file(log_path + '/' + file_name, content)
-
+        try:
+            cpu_core_context =str(psutil.cpu_percent(interval=1, percpu=True))
+            write_file(log_path + '/cpu_core_info.csv',cpu_core_context)
+            cpu = os.popen("export TERM=linux && top -bn 2|grep Cpu\(s\)|awk '{print $2+$4}'").readlines()[1].strip()
+            write_file(log_path + '/cpu_info.csv',cpu)
+            mem = os.popen("export TERM=linux && free |grep -E 'Mem:' |awk '{print $3}' ").readline().strip()
+            write_file(log_path + '/mem_info.csv',str(int(mem)/1024)) #M
+            for index in range(npu_num):
+                file_name = str(index) + '.csv'
+                npu_com = "npu-smi info -t usages -i " + str(index) + " | awk -F ':' '{print $2}'"
+                npu_info = os.popen(npu_com).readlines()
+                npu_util = float(npu_info[7].strip('\n'))
+                npu_mem = float(npu_info[6].strip('\n'))
+                npu_all = float(npu_info[5].strip('\n'))
+                content = str(npu_util) + "," + str(npu_mem) + "," + str(npu_all)
+                write_file(log_path + '/' + file_name, content)
+        except Exception as E:
+            pass
         time.sleep(dev_interval - 2)
 
 if __name__ == "__main__":
