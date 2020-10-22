@@ -44,6 +44,7 @@ import utils
 from dataset import create_dataset2 as create_dataset
 from CrossEntropySmooth import CrossEntropySmooth
 from lr_generator import get_lr, warmup_cosine_annealing_lr
+from metric import DistAccuracy, ClassifyCorrectCell
 
 # set the logger format
 log_format = "%(asctime)s %(message)s"
@@ -197,13 +198,17 @@ def mds_train_eval(q, hyper_params, receive_config, dataset_path_train, dataset_
         auto_parallel_context().set_all_reduce_fusion_split_indices([85, 160])
         init()
 
+    eval_batch_size = 32
     # create dataset
     dataset_train = create_dataset(dataset_path=dataset_path_train, do_train=True, repeat_num=1, batch_size=batch_size, target=target)
-    dataset_val = create_dataset(dataset_path=dataset_path_val, do_train=False, repeat_num=1, batch_size=32, target=target)
     step_size = dataset_train.get_dataset_size()
+    dataset_val = create_dataset(dataset_path=dataset_path_val, do_train=False, repeat_num=1, batch_size=eval_batch_size, target=target)
 
-    # build net
+    # build network
     net = build_graph_from_json(receive_config, hyper_params)
+
+    # evaluation network
+    dist_eval_network = ClassifyCorrectCell(net)
 
     # init weight
     for _, cell in net.cells_and_names():
@@ -240,8 +245,9 @@ def mds_train_eval(q, hyper_params, receive_config, dataset_path_train, dataset_
                               smooth_factor=0.1, num_classes=1001)
     loss_scale = FixedLossScaleManager(loss_scale=1024, drop_overflow_update=False)
 
-    model = Model(net, loss_fn=loss, optimizer=opt, loss_scale_manager=loss_scale, metrics={'acc'},
-                  amp_level="O2", keep_batchnorm_fp32=False)
+    model = Model(net, loss_fn=loss, optimizer=opt, loss_scale_manager=loss_scale, amp_level="O2", keep_batchnorm_fp32=False,
+                  metrics={'acc': DistAccuracy(batch_size=eval_batch_size, device_num=device_num)},
+                  eval_network=dist_eval_network)
 
     # define callbacks
     acc_cb = Accuracy(model, dataset_val, device_id, epoch_size, step_size, ms_lock)
@@ -274,13 +280,6 @@ def train_eval_distribute(hyper_params, receive_config, trial_id, hp_path):
         run_epochs = int(args.warmup_3)
     else:
         run_epochs = int(args.epochs)
-    
-    # if loopnum < 4:
-    #     patience = int(8 + (2 * loopnum))
-    #     run_epochs = int(10 + (20 * loopnum))
-    # else:
-    #     patience = 16
-    #     run_epochs = args.epochs
 
     # build queue to save result for each process
     q = Queue()
@@ -331,7 +330,7 @@ def train_eval_distribute(hyper_params, receive_config, trial_id, hp_path):
     try:
         if run_epochs >= 10 and run_epochs < 80:
             epoch_x = range(1, len(acc_list) + 1)
-            pacc = predict_acc('', epoch_x, acc_list, 90 , False)
+            pacc = predict_acc('', epoch_x, acc_list, 90, False)
             best_acc = float(pacc)
     except Exception as E:
         print("Predict failed.")
@@ -469,7 +468,7 @@ if __name__ == "__main__":
                 if TPEearlystop.step(single_acc):
                     break
 
-        nni.report_final_result(best_final,socket)
+        nni.report_final_result(best_final, socket)
         if not os.path.isdir(experiment_path + '/hyperparameter'):
             os.makedirs(experiment_path + '/hyperparameter')
         with open(experiment_path + '/hyperparameter/' + str(nni.get_sequence_id()) + '.json', 'w') as hyperparameter_json:
