@@ -93,7 +93,15 @@ def get_one_train_info(lines, start, end):
         except Exception as e:
             pass
 
-    assert len(list(train_info.keys())) > 0, 'Train info is empty! Check param "train_num".'
+    #assert len(list(train_info.keys())) > 0, 'Train info is empty! Check param "train_num".'
+    if len(list(train_info.keys())) == 0:
+        return {'epoch_train_time': [],
+            'step_train_time': [],
+            'loss': [],
+            'eval_acc': [],
+            'eval_time': [],
+            'eval_end_time': []}
+
     if len(list(eval_info.keys()))!=epoch_size or len(eval_info[epoch_size]['eval_time'])!=len(train_info[epoch_size]['epoch_time']):
         epoch_size -= 1
 
@@ -148,7 +156,7 @@ def find_all_trials(nnidir, expid, trial_id_list):
             continue
         else:
             pass
-
+        #print(trial_id)
         # 依次解析每一个 train 的信息
         for start, end in zip(info_end_list[:-1], info_end_list[1:]):
             info = get_one_train_info(lines, start, end)
