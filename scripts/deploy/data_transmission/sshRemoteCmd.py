@@ -11,7 +11,7 @@ def get_args():
     parser.add_argument('-ip',type = str,default='/all_ip.txt', help = 'file of ips')
     parser.add_argument('-port',type = str,default='22', help = 'port')
     parser.add_argument('-uname',type = str,default='root', help = 'username')
-    parser.add_argument('-key',type = str,default='Pcl@123@', help = 'password')
+    parser.add_argument('-key',type = str,default='123123', help = 'password')
     parser.add_argument('-code',type = str,default='/userhome/data_transmission', help = 'code path')
     parser.add_argument('-data',type = str,default='/dataset', help = 'data path')
     parser.add_argument('-size',type = str,default='145', help = 'GBytes of data')
