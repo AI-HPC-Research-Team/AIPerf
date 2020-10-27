@@ -1,6 +1,6 @@
 #!/bin/bash
 username='root'
-passward='Pcl@123@'
+passward='123123'
 port='22'
 size='9.4'  # GByte or 116M et al
 codepath='/userhome/AIPerf/scripts/deploy/data_transmission/v1022'
