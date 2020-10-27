@@ -1,4 +1,4 @@
-![](https://github.com/AI-HPC-Research-Team/AIPerf/blob/master/logo.JPG)<br>
+![](https://github.com/AI-HPC-Research-Team/AIPerf/blob/master/logo.JPG)
 
 ![](https://github.com/AI-HPC-Research-Team/AIPerf/blob/master/logo_PCL.jpg) ![](https://github.com/AI-HPC-Research-Team/AIPerf/blob/master/logo_THU.jpg)
 
