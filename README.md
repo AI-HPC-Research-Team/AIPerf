@@ -2,81 +2,31 @@
 
 ![](https://github.com/AI-HPC-Research-Team/AIPerf/blob/master/logo_PCL.jpg) ![](https://github.com/AI-HPC-Research-Team/AIPerf/blob/master/logo_THU.jpg)
 
-### 总规划师：清华大学陈文光教授 ###
-### 开发单位：鹏城实验室(PCL)，清华大学(THU)
-### 特别感谢： 国防科技大学窦勇老师及其团队的宝贵意见，建议和支持 ###
+**<font size=4>总规划师：清华大学陈文光教授</font>** 
+**<font size=4>开发单位：鹏城实验室(PCL)，清华大学(THU)</font>**
+**<font size=4>特别感谢： 国防科技大学窦勇老师及其团队的宝贵意见，建议和支持</font>**
 
-
-- [AIPerf Benchmark v1.0](#head1)
-	- [ Benchmark结构设计](#head2)
-	- [ Benchmark安装说明](#head3)
-		- [ 本文用于在容器环境下运行Benchmark](#head4)
-		- [ 一、Benchmark环境配置、安装要求](#head5)
-			- [ 1.物理机环境配置](#head6)
-			- [ 2.容器制作](#head7)
-			- [ 3.容器部署](#head8)
-			- [ 4.数据集制作](#head9)
-		- [ 二、Benchmark测试规范](#head10)
-			- [ 配置运行参数](#head11)
-			- [ 运行benchmark](#head12)
-			- [ 停止实验](#head13)
-		- [ 三、测试参数设置及推荐环境配置](#head14)
-			- [ 可变设置](#head15)
-			- [ 推荐环境配置](#head16)
-	- [ Benchmark报告反馈](#head17)
-	- [ 许可](#head18)
-
-
+[TOC]
 
 # <span id="head1">AIPerf Benchmark v1.0</span>
 
 ## <span id="head2"> Benchmark结构设计</span>
 
-### 关于AIPerf设计理念，技术细节，以及测试结果，请参考论文：https://arxiv.org/abs/2008.07141 ###
+**关于AIPerf设计理念，技术细节，以及测试结果，请参考论文：https://arxiv.org/abs/2008.07141** 
 
 AIPerf Benchmark基于微软NNI开源框架，以自动化机器学习（AutoML）为负载，使用network morphism进行网络结构搜索和TPE进行超参搜索。
 
-Master节点将模型历史及其达到的正确率发送至Slave节点。Slave节点根据模型历史及其正确率，搜索出一个新的模型，并进行训练。Slave节点将根据某种策略（如连续10个Epoch的测试集正确率没有提升）停止训练，并将此模型及其达到的正确率发送至Master节点。Master节点接收并更新模型历史及正确率。
-现有NNI框架在模型搜索阶段在Master节点进行，该特性是的AutoML作为基准测试程序负载时成为了发挥集群计算能力的瓶颈。为提升集群设备的计算资源利用率，项目组需要从减少Master节点计算时间、提升Slave节点GPU有效计算时间的角度出发，对AutoML框架进行修改。主要分以下特性：
-将网络结构搜索过程分散到Slave节点上进行，有效利用集群资源优势；
 
-1. 将每个任务的模型生成与训练过程由串行方式改为异步并行方式进行，在网络结构搜索的同时使得GPU可以同时进行训练，减少GPU空闲时间；
-2. 将模型搜索过程中进行结构独特性计算部分设置为多个网络结构并行计算，减少时间复杂度中网络结构个数（n）的影响，可以以并发个数线性降低时间负载度；
-3. 为从根本上解决后期模型搜索时需要遍历所有历史网络结构计算编辑距离的问题，需要探索网络结构独特性评估的优化算法或搜索效率更高的NAS算法，将其作为NAS负载添加至Benchmark框架中。
-
-为进一步提升设备的利用率、完善任务调度的稳定性，修改、完善了调度代码，将网络结构搜索算法分布到每个slave节点执行，并采用slurm分配资源、分发任务。
-
-Benchmark模块结构组成如下：
-
-1. 源代码（AIPerf/src）：AIPerf主体模块为src模块，该模块包含了整个AIPerf主体框架
-
-2. 参数初始化（AIPerf/examples/trials/network_morphism/imagenet/config.yml）：在AIPerf运行之前对参数进行调整
-
-3. 日志&结果收集（AIPerf/scripts/reports）： 在AIPerf运行结束后将不同位置的日志和测试数据统一保存在同一目录下
-
-4. 数据分析（AIPerf/scripts/reports）： 对正在运行/结束的测试进行数据分析，得出某一时间点内该测试的Error、Score、Regulated Score，并给出测试报告
-
-5. 资源监控： 监控测试过程中的硬件资源使用，有助于测试分析和发现瓶颈 
-
-	1. (必需)自动化脚本资源监控（AIPerf/examples/trials/network_morphism/imagenet/resource_monitor.py）
-	2. (可选) 可视化资源监控（AIPerf/scripts/monitor）
-
-***NOTE：后续文档的主要內容由Benchmark环境配置、安装要求，测试规范，报告反馈要求以及必要的参数设置要求组成；***
 
 ## <span id="head3"> Benchmark安装说明</span>
 
-### <span id="head4"> 本文用于在容器环境下运行Benchmark</span>
-
-如果用物理机环境测试，请移步: [物理机运行说明](https://github.com/AI-HPC-Research-Team/AIPerf/blob/master/README_OS.md)
+ **本文用于在容器环境下运行Benchmark**
 
 ### <span id="head5"> 一、Benchmark环境配置、安装要求</span>
 
 *(本文档默认物理机环境已经安装docker、nvidia-docker)*
 
 Benchmark运行环境由Master节点-Slaves节点组成，其中Mater节点不参与调度不需要配置GPU/加速卡，Slave节点可配置多块加速卡。
-
-Benchmark运行时，需要先获取集群资源各节点信息（包括IP、环境变量等信息），根据各节点信息组建slurm调度环境，以master节点为slurm控制节点，各slave节点为slurm的计算节点。以用户的共享文件目录作为数据集、实验结果保存和中间结果缓存路径。
-同时Master节点分别作为Benchmark框架和slurm的控制节点，根据实验配置文件中的最大任务数和slurm实际运行资源状态分配当前运行任务（trial）。每个trial分配至一个slave节点，trial的训练任务以节点中8GPU数据并行的方式执行训练。
 
 #### <span id="head6"> 1.物理机环境配置</span>
 
@@ -85,10 +35,6 @@ Benchmark运行时，需要先获取集群资源各节点信息（包括IP、环
 **配置共享文件系统**
 
 配置共享文件系统需要在物理机环境中进行，若集群环境中已有共享文件系统则跳过配置共享文件系统的步骤,若无共享文件系统，则需配置共享文件系统。
-
-*搭建NFS*
-
-AIPerf运行过程所有节点将使用NFS共享文件系统进行数据共享和存储
 
 *安装NFS服务端*
 
@@ -160,6 +106,66 @@ touch /userhome/test
 
 如其他节点能在/userhome下看见 test 文件则运行正常。
 
+#### <span id="head9"> 2.数据集制作</span>
+
+制作数据集建议在已做好容器内操作，里面包含了制作数据集需要的基本环境。
+
+**数据集下载**
+
+ *Imagenet官方地址：http://www.image-net.org/index* 
+
+官方提供四种数据集：  Flowers、CIFAR-10、MNIST、ImageNet-2012  前三个数据集数据量小，直接调用相关脚本自动会完成下载、转换（TFRecord格式）的过程，在 /userhome/AIPerf/scripts/build_data目录下执行以下脚本：
+
+```javascript
+cd  /userhome/AIPerf/scripts/build_data
+./download_imagenet.sh
+```
+
+原始的ImageNet-2012下载到当前的imagenet目录并包含以下两个文件:
+
+- ILSVRC2012_img_val.tar
+- ILSVRC2012_img_train.tar
+
+**TFReord制作**
+
+训练集和验证集需要按照1000个子目录下包含图片的格式，处理步骤：
+
+1. 将train 和 val 的数据按照文件夹分类
+2. 指定参数运行build_imagenet_data.py
+
+**可以按照以下步骤执行**:  假设数据存放在/userhome/AIPerf/scripts/build_data/imagenet目录下，TFRecord文件的输出目录是/userhome/AIPerf/scripts/build_data/ILSVRC2012/output
+
+```shell
+# 做验证集
+cd  /userhome/AIPerf/scripts/build_data
+mkdir -p ILSVRC2012/raw-data/imagenet-data/validation/  
+tar -xvf imagenet/ILSVRC2012_img_val.tar -C ILSVRC2012/raw-data/imagenet-data/validation/
+python preprocess_imagenet_validation_data.py ILSVRC2012/raw-data/imagenet-data/validation/ imagenet_2012_validation_synset_labels.txt
+
+# 做训练集
+mkdir -p ILSVRC2012/raw-data/imagenet-data/train/
+tar -xvf imagenet/ILSVRC2012_img_train.tar -C ILSVRC2012/raw-data/imagenet-data/train/ && cd ILSVRC2012/raw-data/imagenet-data/train
+find . -name "*.tar" | while read NAE ; do mkdir -p "${NAE%.tar}"; tar -xvf "${NAE}" -C "${NAE%.tar}"; rm -f "${NAE}"; done
+cd -
+
+# 执行转换
+mkdir -p ILSVRC2012/output
+python build_imagenet_data.py --train_directory=ILSVRC2012/raw-data/imagenet-data/train --validation_directory=ILSVRC2012/raw-data/imagenet-data/validation --output_directory=ILSVRC2012/output --imagenet_metadata_file=imagenet_metadata.txt --labels_file=imagenet_lsvrc_2015_synsets.txt
+```
+
+上面步骤执行完后，路径ILSVRC2012/output包含128个validation开头的验证集文件和1024个train开头的训练集文件。需要分别将验证集和数据集移动到slave节点的物理机上
+
+```
+mkdir -p /root/datasets/imagenet/train
+mkdir -p /root/datasets/imagenet/val
+mv ILSVRC2012/output/train-* /root/datasets/imagenet/train
+mv ILSVRC2012/output/validation-* /root/datasets/imagenet/val
+```
+
+#### <span id="head7"> 3.容器制作</span>
+
+(容器内执行)
+
 **物理机下载基础镜像**
 
 针对NVIDIA V100
@@ -175,16 +181,12 @@ docker pull nvidia/cuda:11.1-cudnn8-devel-ubuntu16.04
 
 针对NVIDIA V100
 ```
-nvidia-docker run -it --name build_AIPerf -v /userhome:/userhome nvidia/cuda:10.1-cudnn7-devel-ubuntu16.04
+nvidia-docker run -it --name build_AIPerf -v /userhome:/userhome -v /root/dataset:root/dataset nvidia/cuda:10.1-cudnn7-devel-ubuntu16.04
 ```
 针对NVIDIA A100
 ```
-nvidia-docker run -it --name build_AIPerf -v /userhome:/userhome nvidia/cuda:11.1-cudnn8-devel-ubuntu16.04
+nvidia-docker run -it --name build_AIPerf -v /userhome:/userhome -v /root/dataset:root/dataset nvidia/cuda:11.1-cudnn8-devel-ubuntu16.04
 ```
-
-#### <span id="head7"> 2.容器制作</span>
-
-(容器内执行)
 
 **安装基础工具**
 
@@ -203,14 +205,12 @@ vim /etc/ssh/sshd_config
 找到PermitRootLogin prohibit-password所在行，并修改为
 
 ```
-#PermitRootLogin prohibit-password
 PermitRootLogin yes
 ```
 
 避免和物理机端口冲突，打开配置文件 /etc/ssh/sshd_config，修改ssh端口22为222
 
 ```
-#Port 22
 port 222
 ```
 
@@ -286,18 +286,8 @@ nnictl --help
 
 **安装slurm**
 
-AIPerf的资源调度通过slurm进行
-
-*安装slurm、munge*
-
 ```
 apt install munge slurm-llnl -y
-```
-
-*创建munge秘钥*
-
-```
-/usr/sbin/create-munge-key -r
 ```
 
 **目录调整**
@@ -323,11 +313,11 @@ ln -s /userhome/nni /root/nni
  将权重文件复制到共享目录/userhome中
 
 ```shell
-wget -P /userhome https://github.com/fchollet/deep-learning-models/releases/download/v0.1/resnet50_weights_tf_dim_ordering_tf_kernels.h5
+wget -P /userhome https://github.com/AI-HPC-Research-Team/Weight/releases/download/AIPerf1.0/resnet50_weights_tf_dim_ordering_tf_kernels.h5
 ```
 
 
-#### <span id="head8"> 3.容器部署</span>
+#### <span id="head8"> 4.容器部署</span>
 
 (物理机执行)
 
@@ -342,7 +332,7 @@ sudo docker commit build_AIPerf aiperf:latest
 将容器导出到之前创建好的共享目录/userhome，方便其它节点导入
 
 ```
-sudo docker save -o  /userhome/AIPerf.tar aiperf:latest
+sudo docker save -o /userhome/AIPerf.tar aiperf:latest
 ```
 
 **导入镜像**
@@ -355,10 +345,10 @@ sudo docker load -i /userhome/AIPerf.tar
 
 **运行容器**
 
-参与实验的所有节点运行容器，master节点可以用docker运行容器，不需要用 nvidia-docker
+参与实验的所有节点运行容器
 
 ```
-sudo nvidia-docker run -it --net=host -v /userhome:/userhome aiperf:latest
+sudo nvidia-docker run -it --net=host -v /userhome:/userhome -v /root/dataset:root/dataset aiperf:latest
 ```
 
 **配置容器**
@@ -410,61 +400,7 @@ sinfo
 如果STATE列的状态后面带*则该节点网络出现问题master无法访问到该节点。
 
 
-#### <span id="head9"> 4.数据集制作</span>
 
-制作数据集建议在已做好容器内操作，里面包含了制作数据集需要的基本环境。
-
-**数据集下载**
-
- *Imagenet官方地址：http://www.image-net.org/index* 
-
-官方提供四种数据集：  Flowers、CIFAR-10、MNIST、ImageNet-2012  前三个数据集数据量小，直接调用相关脚本自动会完成下载、转换（TFRecord格式）的过程，在 /userhome/AIPerf/scripts/build_data目录下执行以下脚本：
-
-```javascript
-cd  /userhome/AIPerf/scripts/build_data
-./download_imagenet.sh
-```
-
-原始的ImageNet-2012下载到当前的imagenet目录并包含以下两个文件:
-
-- ILSVRC2012_img_val.tar
-- ILSVRC2012_img_train.tar
-
-**TFReord制作**
-
-训练集和验证集需要按照1000个子目录下包含图片的格式，处理步骤：
-
-1. 将train 和 val 的数据按照文件夹分类
-2. 指定参数运行build_imagenet_data.py
-
-**可以按照以下步骤执行**:  假设数据存放在/userhome/AIPerf/scripts/build_data/imagenet目录下，TFRecord文件的输出目录是/userhome/AIPerf/scripts/build_data/ILSVRC2012/output
-
-```shell
-# 做验证集
-cd  /userhome/AIPerf/scripts/build_data
-mkdir -p ILSVRC2012/raw-data/imagenet-data/validation/  
-tar -xvf imagenet/ILSVRC2012_img_val.tar -C ILSVRC2012/raw-data/imagenet-data/validation/
-python preprocess_imagenet_validation_data.py ILSVRC2012/raw-data/imagenet-data/validation/ imagenet_2012_validation_synset_labels.txt
-
-# 做训练集
-mkdir -p ILSVRC2012/raw-data/imagenet-data/train/
-tar -xvf imagenet/ILSVRC2012_img_train.tar -C ILSVRC2012/raw-data/imagenet-data/train/ && cd ILSVRC2012/raw-data/imagenet-data/train
-find . -name "*.tar" | while read NAE ; do mkdir -p "${NAE%.tar}"; tar -xvf "${NAE}" -C "${NAE%.tar}"; rm -f "${NAE}"; done
-cd -
-
-# 执行转换
-mkdir -p ILSVRC2012/output
-python build_imagenet_data.py --train_directory=ILSVRC2012/raw-data/imagenet-data/train --validation_directory=ILSVRC2012/raw-data/imagenet-data/validation --output_directory=ILSVRC2012/output --imagenet_metadata_file=imagenet_metadata.txt --labels_file=imagenet_lsvrc_2015_synsets.txt
-```
-
-上面步骤执行完后，路径ILSVRC2012/output包含128个validation开头的验证集文件和1024个train开头的训练集文件。需要分别将验证集和数据集移动到共享目录/root/datasets/imagenet对应路径下
-
-```
-mkdir -p /root/datasets/imagenet/train
-mkdir -p /root/datasets/imagenet/val
-mv ILSVRC2012/output/train-* /root/datasets/imagenet/train
-mv ILSVRC2012/output/validation-* /root/datasets/imagenet/val
-```
 
 ### <span id="head10"> 二、Benchmark测试规范</span>
 
@@ -529,8 +465,8 @@ trial:
        --epoch 60 \						          # 8
        --initial_lr 1e-1 \						  # 9
        --final_lr 0 \						  # 10
-       --train_data_dir /gdata/ILSVRC2012/ImageNet-Tensorflow/train_tfrecord/ \  # 11
-       --val_data_dir /gdata/ILSVRC2012/ImageNet-Tensorflow/validation_tfrecord/ # 12
+       --train_data_dir /root/datasets/imagenet/train/ \  # 11
+       --val_data_dir /root/datasets/imagenet/val/ # 12
 
  codeDir: .
  gpuNum: 0
@@ -570,7 +506,7 @@ nnictl stop
 
 **查看实验报告**
 
-当测试运行过程中，运行以下程序会在终端打印experiment的Error、Score、Regulated Score等信息
+当测试运行过程中（超过15mins），运行以下程序会在终端打印experiment的Error、Score、Regulated Score等信息
 
 ```
 python3 /userhome/AIPerf/scripts/reports/report.py --id  experiment_ID  
