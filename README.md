@@ -8,7 +8,7 @@
 
 **<font size=4>特别感谢： 国防科技大学窦勇老师及其团队的宝贵意见，建议和支持</font>**
 
-[TOC]
+
 
 
 # <span id="head1">AIPerf Benchmark v1.0</span>
