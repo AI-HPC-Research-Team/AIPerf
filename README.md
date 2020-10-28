@@ -1,10 +1,8 @@
 ![](https://github.com/AI-HPC-Research-Team/AIPerf/blob/master/logo.JPG)<br>
 
 ![](https://github.com/AI-HPC-Research-Team/AIPerf/blob/master/logo_PCL.jpg) ![](https://github.com/AI-HPC-Research-Team/AIPerf/blob/master/logo_THU.jpg)
-
-### 总规划师：清华大学陈文光教授 ###
 ### 开发单位：鹏城实验室(PCL)，清华大学(THU)
-### 特别感谢： 国防科技大学窦勇老师及其团队的宝贵意见，建议和支持 ###
+### 特别感谢国防科技大学窦勇老师及其团队的宝贵意见和支持 ###
 
 
 - [AIPerf Benchmark v1.0](#head1)
