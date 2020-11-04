@@ -413,7 +413,7 @@ sinfo
 #### <span id="head11"> 初始化配置</span>
 
 *(以下操作均在master节点进行)*
-根据需求修改/userhome/AIPerf/example/trials/network_morphism/imagenet/config.yml配置
+根据需求修改/userhome/AIPerf/examples/trials/network_morphism/imagenet/config.yml配置
 
 |      |         可选参数         |              说明               |     默认值      |
 | ---- | :----------------------: | :-----------------------------: | :-------------: |
@@ -475,7 +475,7 @@ trial:
 
 #### <span id="head12"> 运行benchmark</span>
 
-在/userhome/AIPerf/example/trials/network_morphism/imagenet/目录下执行以下命令运行用例
+在/userhome/AIPerf/examples/trials/network_morphism/imagenet/目录下执行以下命令运行用例
 
 ```
 nnictl create -c config.yml
