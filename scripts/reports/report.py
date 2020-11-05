@@ -71,8 +71,8 @@ def main(args, save_folder):
     elif float(results['real_time'][-1]) < timeth:
         logs += "!!! Test failed without running enough time !!!\n"
 
-    logs += "Final Score : " + str(np.mean(np.array(results['GFLOPS'][7:],dtype='float32'))) + ' GFLOPS\n'
-    logs += "Final Regulated Score : " + str(np.mean(np.array(results['Score'][7:],dtype='float32'))) + ' GFLOPS\n'
+    logs += "Final Score : " + str(np.mean(np.array(results['GFLOPS'][-1],dtype='float32'))) + ' GFLOPS\n'
+    logs += "Final Regulated Score : " + str(np.mean(np.array(results['Score'][-1],dtype='float32'))) + ' GFLOPS\n'
 
     internal_log = save_log.display_log(results)
     logs += internal_log
