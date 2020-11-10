@@ -156,7 +156,7 @@ def find_all_trials(nnidir, expid, trial_id_list):
             continue
         else:
             pass
-        #print(trial_id)
+
         # 依次解析每一个 train 的信息
         for start, end in zip(info_end_list[:-1], info_end_list[1:]):
             info = get_one_train_info(lines, start, end)
@@ -169,8 +169,7 @@ def find_all_trials(nnidir, expid, trial_id_list):
 
             hp_list.append(res)
 
-        #print(trial_id, np.array(hp_list[-1]).shape)
-        if np.array(hp_list[-1]).shape[0]==0:
+        if np.array(hp_list).ndim!=3 or np.array(hp_list[-1]).shape[0]==0:
             continue
         experiment_data[trial_id] = hp_list
 
@@ -178,7 +177,6 @@ def find_all_trials(nnidir, expid, trial_id_list):
 
 
 def find_max_acc(stop_time, experiment_data):
-    #print(trial)
     max_acc = 0
     lastest_time = 0
     result_dict = {}
@@ -239,14 +237,17 @@ def conversion_time(string):
 
 
 def find_startime(trial_id_list, t, experiment_path):
-    trial_id = trial_id_list[0]
-
-    # 读取第一个trial 0号超参记录的开始时间
-    if os.path.isfile(experiment_path + "/hyperparameter_epoch/" + trial_id + '/0.json'):
-        with open(experiment_path + "/hyperparameter_epoch/" + trial_id + '/0.json') as hyperparameter_json:
-            hyperparameter = json.load(hyperparameter_json)
-    start_time = time.mktime(time.strptime(hyperparameter['start_date'], "%m/%d/%Y, %H:%M:%S"))
-
+    start_time_list = []
+    for i in range(len(trial_id_list)):
+        trial_id = trial_id_list[i]
+  
+        # 读取第一个trial 0号超参记录的开始时间
+        if os.path.isfile(experiment_path + "/hyperparameter_epoch/" + trial_id + '/0.json'):
+            with open(experiment_path + "/hyperparameter_epoch/" + trial_id + '/0.json') as hyperparameter_json:
+                hyperparameter = json.load(hyperparameter_json)
+                start_time = time.mktime(time.strptime(hyperparameter['start_date'], "%m/%d/%Y, %H:%M:%S"))
+                start_time_list.append(start_time)
+    start_time = min(start_time_list)
     # 将开始时间加上指定的结束时长，得到结束时间，转换成时间戳
     datetime_struct = datetime.datetime.fromtimestamp(start_time)
     datetime_obj = (datetime_struct + datetime.timedelta(hours=t))
@@ -263,18 +264,14 @@ def process_log(trial_id_list, experiment_data, dur, experiment_path):
     results['Score'] = []
 
     flops_info = profiler.profiler(experiment_path)
-
     for index in np.arange(0.3, dur+0.1, 0.1):
         start_time,stop_time = find_startime(trial_id_list, index, experiment_path)
 
         # 获取实验过程总数据
         lastest_time, max_acc, result_dict = find_max_acc(stop_time, experiment_data)
-        # print(result_dict)
 
         # 开始计算
         run_sec = lastest_time - start_time
-        # print(datetime.datetime.fromtimestamp(start_time),'\t',datetime.datetime.fromtimestamp(stop_time),'\t',stop_time-start_time)
-
         total_FLOPs = 0
         faild_trial = []
         for i in range(len(flops_info['trialid'])):
@@ -288,12 +285,11 @@ def process_log(trial_id_list, experiment_data, dur, experiment_path):
                     #读取每个超参对应的epoch
                     epoch = result_dict[trial_id][hp_num]
                     total_FLOPs += (eval_ops * 50000 + trian_ops * 1280000) * epoch
-                    #print(trial_id,hp_num,epoch)
+                    
             else:
                 faild_trial.append(trial_id)
         fraction = float(float(total_FLOPs) * float(abs(math.log(1-max_acc,math.e)))) / float(run_sec)
         fraction = fraction / (10**9)
-
         results['real_time'].append('{:.2f}'.format(run_sec / 3600.))
         results['GFLOPS'].append('{:.1f}'.format(float(total_FLOPs) / float(run_sec) / (10**9)))
         results['Error'].append('{:.2f}'.format(100 - max_acc * 100))
@@ -313,18 +309,30 @@ def cal_report_results(expid):
             parameter_id = json_read['parameter_id']
             id_dict[parameter_id] = trials
 
+    
     #根据 sequence_id 由大到小排序 id_dict = {sequence_id : trial_id}
     id_dict = sorted(zip(id_dict.keys(),id_dict.values()))
     id_dict = dict(id_dict)
     trial_id_list = list(id_dict.values())
+ 
+    start_time_list = []
+    for i in range(len(trial_id_list)):
+        trial_id = trial_id_list[i]
 
+        # 读取第一个trial 0号超参记录的开始时间
+        if os.path.isfile(experiment_path + "/hyperparameter_epoch/" + trial_id + '/0.json'):
+            with open(experiment_path + "/hyperparameter_epoch/" + trial_id + '/0.json') as hyperparameter_json:
+                hyperparameter = json.load(hyperparameter_json)
+                start_time = time.mktime(time.strptime(hyperparameter['start_date'], "%m/%d/%Y, %H:%M:%S"))
+                start_time_list.append(start_time)
+    start_time = min(start_time_list)
 
     experiment_data = find_all_trials(nnidir, expid, trial_id_list)
-    start_time = experiment_data[trial_id_list[0]][0][0][1]
     for index in range(len(trial_id_list)-1,-1,-1):
         if trial_id_list[index] in experiment_data:
             stop_time = experiment_data[trial_id_list[index]][-1][-1][1]
             break
+   
     dur = (stop_time - start_time) / 3600.
     results = process_log(trial_id_list, experiment_data, dur, experiment_path)
     return results, trial_id_list, experiment_data
