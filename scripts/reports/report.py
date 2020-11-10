@@ -24,6 +24,11 @@ import numpy as np
 import os
 import save_log
 import gen_report
+from matplotlib.ticker import FuncFormatter
+
+def formatnum(x, pos):
+    return '$%.1f$x$10^{5}$' % (x/100000)
+formatter = FuncFormatter(formatnum)
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -32,13 +37,16 @@ def get_args():
     return parser.parse_args()
 
 def main_grid(time, values, save_folder, filename):
-    time = np.array(time, dtype='float32')
-    values = np.array(values, dtype='float32')
+    time = np.array(time, dtype='float64')
+    values = np.array(values, dtype='float64')
+    plt.figure(figsize=(12, 6))
     ax = plt.subplot(1,1,1)
     plt.plot(time, values, linewidth = '1.0',color='blue',marker='.') #'darkgoldenrod','slateblue','aqua','red','black'
     font = {'family':'DejaVu Sans', 'weight':'normal', 'size':12}
     plt.tick_params(labelsize=12)
     plt.xlabel('Hours',font)
+    if filename == 'Score (in GFLOPS).png' or filename == 'Regulated Score (in GFLOPS).png':
+        plt.gca().yaxis.set_major_formatter(formatter)
     plt.ylabel(filename.split('.')[0],font)
     plt.grid(axis="y")
 
@@ -84,12 +92,8 @@ def main(args, save_folder):
     elif float(results['real_time'][-1]) < timeth:
         logs += "!!! Test failed without running enough time !!!\n"
 
-    if len(results['real_time']) > timeth:
-        logs += "Final Score : " + str(max(np.array(results['GFLOPS']))) + ' GFLOPS\n'
-        logs += "Final Regulated Score : " + str(max(np.array(results['Score']))) + ' GFLOPS\n'
-    else:
-        logs += "Final Score : " + str(max(np.array(results['GFLOPS']))) + ' GFLOPS\n'
-        logs += "Final Regulated Score : " + str(max(np.array(results['Score']))) + ' GFLOPS\n'
+    logs += "Final Score : " + str(np.mean(np.array(results['GFLOPS'][-1],dtype='float64'))) + ' GFLOPS\n'
+    logs += "Final Regulated Score : " + str(np.mean(np.array(results['Score'][-1],dtype='float64'))) + ' GFLOPS\n'
 
     internal_log = save_log.display_log(results)
     logs += internal_log
@@ -108,11 +112,11 @@ if __name__=='__main__':
     if not os.path.exists(save_folder):
         os.mkdir(save_folder)
     results, trial_id_list, experiment_data = main(args, save_folder)
-    start_time = experiment_data[trial_id_list[0]][0][0][1]
-    for index in range(len(trial_id_list)-1,-1,-1):
-        if trial_id_list[index] in experiment_data:
-            stop_time = experiment_data[trial_id_list[index]][-1][-1][1]
-            break
+#     start_time = experiment_data[trial_id_list[0]][0][0][1]
+#     for index in range(len(trial_id_list)-1,-1,-1):
+#         if trial_id_list[index] in experiment_data:
+#             stop_time = experiment_data[trial_id_list[index]][-1][-1][1]
+#             break
 #     gp = gen_report.GenPerfdata(start_time,stop_time)
 #     gp.parse_mem()
 #     gp.parse_cputil()

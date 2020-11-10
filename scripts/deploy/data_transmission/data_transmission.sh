@@ -1,34 +1,80 @@
 #!/bin/bash
+# ssh information
+username=$3
+password=$4
+port=$5
+timeout=100
+size=$6 #Gsize of dataset
+# absolute file path
+IMAGENET_SRC=$2
+FOLDER=$7
+JPG_PATH=$2/unzip
+IMAGENET_TAR=$IMAGENET_SRC/$FOLDER
+IMAGENET_DST=$IMAGENET_SRC
+ERRORNAME=$1/errorip.txt
+IP_FILE=$1/remain_ip.txt
 
-#获取本机ip
-read -p "请输入本机ip:" LOCAL_IP
+if [ ! -d $IMAGENET_DST ]; then
+	mkdir -p $IMAGENET_DST
+fi
 
-# 数据集路径
-IMAGENET_tar='imagenet_tar'
+if [ ! -d $JPG_PATH ]; then
+	mkdir -p $JPG_PATH
+fi
 
-# 所有节点ssh信息
-username='root'
-password='123123'
-port='22'
-timeout=10
+# loop1 : judge the exsitance of flag file
+# remove tmp file
+if [ -d $IMAGENET_TAR ]; then
+    tmp=$(du -sh $IMAGENET_TAR | awk '{print $1}'|cut -d 'G' -f1)
+    if [ ! $tmp == $size ]; then
+        rm -rf $IMAGENET_TAR
+    fi
+fi
 
-# 为每个机架第一台机器传输数据集
-count=1
-cat ip_data_transmission.txt | while read info;
+while true
 do
-	IP=$(echo $info|awk '{print $1}')
-	echo $IP
-	echo $count
-	FRAME=$(echo $info|awk '{print $2}')
-	# 传数据集
-	sshpass -p "$password" scp -P $port -o StrictHostKeyChecking=no -o ConnectTimeout=$timeout -r $IMAGENET_tar $username@$IP:~/
-	# 传子脚本
-	sshpass -p "$password" scp -P $port -o StrictHostKeyChecking=no -o ConnectTimeout=$timeout sub_data_transmission.sh $username@$IP:~/
-	# 后台执行子脚本，机架内做数据集传输
-	sshpass -p "$password" ssh -n -p $port -o StrictHostKeyChecking=no -o ConnectTimeout=$timeout $username@$IP "bash ~/sub_data_transmission.sh $IP $FRAME >/dev/null 2>&1 &"
-	count=$((count+1))
-done	
+	if [ -d $IMAGENET_TAR ]; then
+        tmp=$(du -sh $IMAGENET_TAR | awk '{print $1}'|cut -d 'G' -f1)
+        if [ $tmp == $size ]; then
+            # remove empty lines
+            sleep $[$RANDOM%30]
+            sed -i -e '/^$/d' $IP_FILE
+            break
+        fi
+	fi
+done
 
-# 本机做机架内数据集传输
-FRAME='第一机架'
-bash sub_data_transmission.sh $LOCAL_IP $FRAME
+# loop2 : judge if ips.txt is empty
+while true
+do
+	# if file is locked, continue
+	# lock the ip file and sleep
+	# read ip
+	sleep $[$RANDOM%30]
+    if [ ! -s $IP_FILE ]; then
+        break
+    else
+        echo $(cat $IP_FILE |wc -l)
+    fi
+	IP_TMP=$(head -n +1 $IP_FILE)
+    IP_TMP=$(echo $IP_TMP|awk -F '.' '{print $1"."$2"."$3"."$4}')
+	echo $IP_TMP
+	# remove ip
+	sed -i '1d' $IP_FILE
+	# unlock ip.txt
+	# transfer imagenet
+	sshpass -p "$password" rsync -r -e "ssh -p $port -o StrictHostKeyChecking=no -o ConnectTimeout=$timeout" --progress $IMAGENET_TAR $username@$IP_TMP:$IMAGENET_DST
+	if [ $? -ne 0 ]; then
+		echo $IP_TMP >> $ERRORNAME
+	fi
+	# sleep random seconds
+	sleep $[$RANDOM%30]
+done
+
+echo "Data transmission Finished."
+echo "Unzipping Local Data."
+# unzip train data
+#mkdir -p $JPG_PATH/val && mkdir -p $JPG_PATH/train
+#cd $IMAGENET_TAR && tar -xf val.tar -C $JPG_PATH/val > /dev/null 2>&1 
+#cd $IMAGENET_TAR && tar -xf train.tar -C $JPG_PATH/train >/dev/null 2>&1
+echo "Done."

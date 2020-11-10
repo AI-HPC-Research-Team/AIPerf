@@ -115,13 +115,18 @@ def conversion_time(string):
     return mytime
 
 def find_startime(trial_id_list, t, experiment_path):
-    trial_id = trial_id_list[0]
-        #读取第一个trial 0号超参记录的开始时间
-    if os.path.isfile(experiment_path + "/hyperparameter_epoch/" + trial_id + '/0.json'):
-        with open(experiment_path + "/hyperparameter_epoch/" + trial_id + '/0.json') as hyperparameter_json:
-            hyperparameter = json.load(hyperparameter_json)
-    start_time = time.mktime(time.strptime( hyperparameter['start_date'], "%m/%d/%Y, %H:%M:%S"))
-    #将开始时间加上指定的结束时长，得到结束时间，转换成时间戳
+    start_time_list = []
+    for i in range(len(trial_id_list)):
+        trial_id = trial_id_list[i]
+  
+        # 读取第一个trial 0号超参记录的开始时间
+        if os.path.isfile(experiment_path + "/hyperparameter_epoch/" + trial_id + '/0.json'):
+            with open(experiment_path + "/hyperparameter_epoch/" + trial_id + '/0.json') as hyperparameter_json:
+                hyperparameter = json.load(hyperparameter_json)
+                start_time = time.mktime(time.strptime(hyperparameter['start_date'], "%m/%d/%Y, %H:%M:%S"))
+                start_time_list.append(start_time)
+    start_time = min(start_time_list)
+    # 将开始时间加上指定的结束时长，得到结束时间，转换成时间戳
     datetime_struct = datetime.datetime.fromtimestamp(start_time)
     datetime_obj = (datetime_struct + datetime.timedelta(hours=t))
     stop_time = datetime_obj.timestamp()
@@ -183,9 +188,20 @@ def cal_report_results(expid):
     id_dict = sorted(zip(id_dict.keys(),id_dict.values()))
     id_dict = dict(id_dict)
     trial_id_list = list(id_dict.values())
+ 
+    start_time_list = []
+    for i in range(len(trial_id_list)):
+        trial_id = trial_id_list[i]
+
+        # 读取第一个trial 0号超参记录的开始时间
+        if os.path.isfile(experiment_path + "/hyperparameter_epoch/" + trial_id + '/0.json'):
+            with open(experiment_path + "/hyperparameter_epoch/" + trial_id + '/0.json') as hyperparameter_json:
+                hyperparameter = json.load(hyperparameter_json)
+                start_time = time.mktime(time.strptime(hyperparameter['start_date'], "%m/%d/%Y, %H:%M:%S"))
+                start_time_list.append(start_time)
+    start_time = min(start_time_list)
 
     experiment_data = find_all_trials(nnidir, expid, trial_id_list)
-    start_time = experiment_data[trial_id_list[0]][0][0][1]
     for index in range(len(trial_id_list)-1,-1,-1):
         if trial_id_list[index] in experiment_data:
             stop_time = experiment_data[trial_id_list[index]][-1][-1][1]
