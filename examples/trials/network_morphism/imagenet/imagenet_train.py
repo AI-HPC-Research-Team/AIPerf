@@ -24,6 +24,7 @@ import time
 import zmq
 import random
 import json
+import sys
 import nni
 import nni.hyperopt_tuner.hyperopt_tuner as TPEtuner
 import multiprocessing
@@ -44,6 +45,7 @@ import utils
 from dataset import create_dataset2 as create_dataset
 from CrossEntropySmooth import CrossEntropySmooth
 from lr_generator import get_lr, warmup_cosine_annealing_lr
+from metric import DistAccuracy, ClassifyCorrectCell
 
 # set the logger format
 log_format = "%(asctime)s %(message)s"
@@ -85,6 +87,7 @@ def get_args():
     parser.add_argument("--warmup_1", type=int, default=15, help="epoch of first warm up round")
     parser.add_argument("--warmup_2", type=int, default=30, help="epoch of second warm up round")
     parser.add_argument("--warmup_3", type=int, default=45, help="epoch of third warm up round")
+    parser.add_argument('--file_service', action='store_true')
     return parser.parse_args()
 
 
@@ -158,7 +161,7 @@ class Accuracy(Callback):
         self.ms_lock.release()
 
 
-def mds_train_eval(q, hyper_params, receive_config, dataset_path_train, dataset_path_val, epoch_size, batch_size, hp_path, device_id, device_num, enable_hccl, ms_lock):
+def mds_train_eval(q, hyper_params, receive_config, dataset_path_train, dataset_path_val, epoch_size, batch_size, hp_path, device_id, device_num, enable_hccl, ms_lock, current_hyperparameter):
     '''
     net:
     dataset_path_train:
@@ -197,13 +200,17 @@ def mds_train_eval(q, hyper_params, receive_config, dataset_path_train, dataset_
         auto_parallel_context().set_all_reduce_fusion_split_indices([85, 160])
         init()
 
+    eval_batch_size = 32
     # create dataset
     dataset_train = create_dataset(dataset_path=dataset_path_train, do_train=True, repeat_num=1, batch_size=batch_size, target=target)
-    dataset_val = create_dataset(dataset_path=dataset_path_val, do_train=False, repeat_num=1, batch_size=32, target=target)
     step_size = dataset_train.get_dataset_size()
+    dataset_val = create_dataset(dataset_path=dataset_path_val, do_train=False, repeat_num=1, batch_size=eval_batch_size, target=target)
 
-    # build net
+    # build network
     net = build_graph_from_json(receive_config, hyper_params)
+
+    # evaluation network
+    dist_eval_network = ClassifyCorrectCell(net)
 
     # init weight
     for _, cell in net.cells_and_names():
@@ -240,14 +247,26 @@ def mds_train_eval(q, hyper_params, receive_config, dataset_path_train, dataset_
                               smooth_factor=0.1, num_classes=1001)
     loss_scale = FixedLossScaleManager(loss_scale=1024, drop_overflow_update=False)
 
-    model = Model(net, loss_fn=loss, optimizer=opt, loss_scale_manager=loss_scale, metrics={'acc'},
-                  amp_level="O2", keep_batchnorm_fp32=False)
+    model = Model(net, loss_fn=loss, optimizer=opt, loss_scale_manager=loss_scale, amp_level="O2", keep_batchnorm_fp32=False,
+                  metrics={'acc': DistAccuracy(batch_size=eval_batch_size, device_num=device_num)},
+                  eval_network=dist_eval_network)
 
     # define callbacks
     acc_cb = Accuracy(model, dataset_val, device_id, epoch_size, step_size, ms_lock)
     cb = [acc_cb]
 
      # train model
+    model._init(dataset_train, dataset_val)
+    start_date = time.strftime('%m/%d/%Y, %H:%M:%S', time.localtime(time.time()))
+
+    ms_lock.acquire()
+    with open(hp_path, 'w') as f:
+        json.dump({'hyperparameter': current_hyperparameter, 
+                   'epoch': 0, 
+                   'single_acc': 0,
+                   'train_time': 0, 
+                   'start_date': start_date}, f)
+    ms_lock.release()
     model.train(epoch_size, dataset_train, callbacks=cb, dataset_sink_mode=True)
 
     # evaluation model
@@ -255,7 +274,7 @@ def mds_train_eval(q, hyper_params, receive_config, dataset_path_train, dataset_
     q.put({'acc': acc})
 
 
-def train_eval_distribute(hyper_params, receive_config, trial_id, hp_path):
+def train_eval_distribute(hyper_params, receive_config, trial_id, hp_path, current_hyperparameter):
     '''
     hyper_param:
     receive_config:
@@ -274,13 +293,6 @@ def train_eval_distribute(hyper_params, receive_config, trial_id, hp_path):
         run_epochs = int(args.warmup_3)
     else:
         run_epochs = int(args.epochs)
-    
-    # if loopnum < 4:
-    #     patience = int(8 + (2 * loopnum))
-    #     run_epochs = int(10 + (20 * loopnum))
-    # else:
-    #     patience = 16
-    #     run_epochs = args.epochs
 
     # build queue to save result for each process
     q = Queue()
@@ -297,7 +309,7 @@ def train_eval_distribute(hyper_params, receive_config, trial_id, hp_path):
         device_id = i
         process.append(Process(target=mds_train_eval,
                                args=(q, hyper_params, receive_config, args.train_data_dir, args.val_data_dir, 
-                                   epoch_size, batch_size, hp_path, device_id, device_num, enable_hccl, ms_lock)))
+                                   epoch_size, batch_size, hp_path, device_id, device_num, enable_hccl, ms_lock, current_hyperparameter)))
     for i in range(device_num):
         process[i].start()
 
@@ -331,7 +343,7 @@ def train_eval_distribute(hyper_params, receive_config, trial_id, hp_path):
     try:
         if run_epochs >= 10 and run_epochs < 80:
             epoch_x = range(1, len(acc_list) + 1)
-            pacc = predict_acc('', epoch_x, acc_list, 90 , False)
+            pacc = predict_acc('', epoch_x, acc_list, 90, False)
             best_acc = float(pacc)
     except Exception as E:
         print("Predict failed.")
@@ -349,8 +361,16 @@ if __name__ == "__main__":
     example_start_time = time.time()
     args = get_args()
     try:
-        experiment_path = os.environ["HOME"] + "/mountdir/nni/experiments/" + str(nni.get_experiment_id())
-
+        experiment_id = str(nni.get_experiment_id())
+        trial_id = str(nni.get_trial_id())
+        
+        experiment_path = os.environ["HOME"] + "/mountdir/nni/experiments/" + experiment_id
+        if args.file_service:
+            sys.path.append("/opt/file_service/client")
+            import FileClient
+            graph_path = os.path.join(os.environ["HOME"], 'graph', experiment_id)
+            if not os.path.exists(graph_path):
+                os.makedirs(graph_path)
         # 开启模型生成和模型训练的异步执行
         lock = multiprocessing.Lock()
 
@@ -358,7 +378,7 @@ if __name__ == "__main__":
         socket = context.socket(zmq.REQ)
         tmpstr = 'tcp://' + args.ip + ':800081'
         socket.connect(tmpstr)
-        os.makedirs(experiment_path + "/trials/" + str(nni.get_trial_id()))
+        os.makedirs(experiment_path + "/trials/" + trial_id)
 
         get_next_parameter_start = time.time()
         nni.get_next_parameter(socket)
@@ -366,7 +386,17 @@ if __name__ == "__main__":
 
         while True:
             lock.acquire()
-            with open(experiment_path + "/graph.txt", "a+") as f:
+            if args.file_service:
+                graph_file = os.path.join(graph_path, 'graph.txt')
+                client_config_file = '/home/client.yml'
+                app_config = FileClient.ConfigUtils(config_file=client_config_file,
+                                                    command="query", file=graph_file)  # 下载
+
+                client = FileClient.Client(app_config)
+                ret_code = client.handle_cmd(app_config.get_command())
+            else:
+                graph_file = experiment_path + "/graph.txt"
+            with open(graph_file, "a+") as f:
                 f.seek(0)
                 lines = f.readlines()
             lock.release()
@@ -380,7 +410,7 @@ if __name__ == "__main__":
         else:
             json_and_id_str = lines[-1].replace("\n", "")
 
-        with open(experiment_path + "/trials/" + str(nni.get_trial_id()) + "/output.log", "a+") as f:
+        with open(experiment_path + "/trials/" + trial_id + "/output.log", "a+") as f:
             f.write("sequence_id=" + str(nni.get_sequence_id()) + "\n")
         json_and_id = dict((l.split('=') for l in json_and_id_str.split('+')))
         if str(json_and_id['history']) == "True":
@@ -414,7 +444,6 @@ if __name__ == "__main__":
         TPE = TPEtuner.HyperoptTuner('tpe')
         TPE.update_search_space(search_space)
         searched_space_point = {}
-        start_date = time.strftime('%m/%d/%Y, %H:%M:%S', time.localtime(time.time()))
 
         current_json = json_and_id['json_out']
         current_hyperparameter = init_search_space_point
@@ -425,14 +454,8 @@ if __name__ == "__main__":
             
         global hp_path
         hp_path = experiment_path + '/hyperparameter_epoch/' + str(nni.get_trial_id()) + '/0.json'
-        with open(hp_path, 'w') as f:
-            json.dump({'hyperparameter': current_hyperparameter, 
-                       'epoch': 0, 
-                       'single_acc': 0,
-                       'train_time': 0, 
-                       'start_date': start_date}, f)
 
-        single_acc, current_ep = train_eval_distribute(init_search_space_point, RCV_CONFIG, int(nni.get_sequence_id()), hp_path)
+        single_acc, current_ep = train_eval_distribute(init_search_space_point, RCV_CONFIG, int(nni.get_sequence_id()), hp_path, current_hyperparameter)
         print("HPO-" + str(train_num) + ",hyperparameters:" + str(init_search_space_point) + ",best_val_acc:" + str(single_acc))
 
         # single_train_time = time.time() - train_time
@@ -448,16 +471,9 @@ if __name__ == "__main__":
 
             for train_num in range(1, args.maxTPEsearchNum):
                 params = TPE.generate_parameters(train_num)
-                start_date = time.strftime('%m/%d/%Y, %H:%M:%S', time.localtime(time.time()))
 
                 current_hyperparameter = params
                 hp_path = experiment_path + '/hyperparameter_epoch/' + str(nni.get_trial_id()) + '/' + str(train_num) + '.json'
-                with open(hp_path, 'w') as f:
-                    json.dump({'hyperparameter': current_hyperparameter, 
-                               'epoch': 0, 
-                               'single_acc': 0,
-                               'train_time': 0, 
-                               'start_date': start_date}, f)
 
                 single_acc, current_ep = train_eval_distribute(params, RCV_CONFIG, int(nni.get_sequence_id()), hp_path)
                 print("HPO-" + str(train_num) + ",hyperparameters:" + str(params) + ",best_val_acc:" + str(single_acc))
@@ -469,7 +485,7 @@ if __name__ == "__main__":
                 if TPEearlystop.step(single_acc):
                     break
 
-        nni.report_final_result(best_final,socket)
+        nni.report_final_result(best_final, socket)
         if not os.path.isdir(experiment_path + '/hyperparameter'):
             os.makedirs(experiment_path + '/hyperparameter')
         with open(experiment_path + '/hyperparameter/' + str(nni.get_sequence_id()) + '.json', 'w') as hyperparameter_json:
