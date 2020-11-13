@@ -1,7 +1,7 @@
-**安装NFS，把本文件夹放在共享目录下 **
+**前提：安装NFS，把本文件夹放在共享目录下 **
 
 
-
+#### Instructions
 1. pip3 install paramiko
 2. Edit 'datapath','codepath'.'username','passward','port','size','folder' in startup.sh (all in string format)
 3. Edit remain_ip.txt (represent ips of nodes that with complete dataset)
@@ -31,10 +31,11 @@
 
 
 **注：**
-**1.若文件大小为G以上，只需输数字，例如145G则size='145'；否则为完整大小，如文件大小为400M，则size='400M'**
-**2.运行之前通过nproc查看cpu核数，all_ip.txt中ip数不能超过核数**
-
-**3.开启startup.sh之前查看并kill各个节点的进程**
- **ps -ef|grep data|grep -v grep|awk '{print $2}'|xargs kill -9**
- **ps -ef|grep rsync|grep -v grep|awk '{print $2}'|xargs kill -9**
+1.若文件大小为G以上，只需输数字，例如145G则size='145'；否则为完整大小，如文件大小为400M，则size='400M'
+2.运行之前通过nproc查看cpu核数，all_ip.txt中ip数不能超过核数
+3.开启startup.sh之前查看并kill各个节点的进程
+```
+ps -ef|grep data|grep -v grep|awk '{print $2}'|xargs kill -9
+ps -ef|grep rsync|grep -v grep|awk '{print $2}'|xargs kill -9
+```
 
