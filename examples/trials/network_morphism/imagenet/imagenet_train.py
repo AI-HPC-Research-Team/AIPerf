@@ -475,7 +475,7 @@ if __name__ == "__main__":
                 current_hyperparameter = params
                 hp_path = experiment_path + '/hyperparameter_epoch/' + str(nni.get_trial_id()) + '/' + str(train_num) + '.json'
 
-                single_acc, current_ep = train_eval_distribute(params, RCV_CONFIG, int(nni.get_sequence_id()), hp_path)
+                single_acc, current_ep = train_eval_distribute(params, RCV_CONFIG, int(nni.get_sequence_id()), hp_path, current_hyperparameter)
                 print("HPO-" + str(train_num) + ",hyperparameters:" + str(params) + ",best_val_acc:" + str(single_acc))
                 TPE.receive_trial_result(train_num, params, single_acc)
 
