@@ -219,7 +219,7 @@ pip3 install --upgrade pip
 下载源代码到共享目录 /userhome：
 
 ```shell
-git clone -b Atlas-800 https://github.com/AI-HPC-Research-Team/AIPerf.git \
+git clone -b Atlas https://github.com/AI-HPC-Research-Team/AIPerf.git \
 /userhome/AIPerf
 ```
 
