@@ -63,13 +63,10 @@ def main(args, save_folder):
     main_grid(results['real_time'], results['Error'], save_folder, 'Error(%).png')
     main_grid(results['real_time'], results['Score'], save_folder, 'Regulated Score (in GFLOPS).png')
     errorth = 30.0
-    timeth = 1
 
     logs = "======================================================================\n"
     if float(results['Error'][-1]) > errorth:
         logs += "!!! Test failed due to low accuracy !!!\n"
-    elif float(results['real_time'][-1]) < timeth:
-        logs += "!!! Test failed without running enough time !!!\n"
 
     logs += "Final Score : " + str(np.mean(np.array(results['GFLOPS'][-1],dtype='float64'))) + ' GFLOPS\n'
     logs += "Final Regulated Score : " + str(np.mean(np.array(results['Score'][-1],dtype='float64'))) + ' GFLOPS\n'
