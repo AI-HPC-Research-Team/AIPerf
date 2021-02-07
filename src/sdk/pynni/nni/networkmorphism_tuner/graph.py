@@ -9,7 +9,7 @@ from queue import Queue
 import os
 os.environ['HDF5_USE_FILE_LOCKING']='FALSE'
 import numpy as np
-#import torch
+import torch
 
 from nni.networkmorphism_tuner.layer_transformer import (
     add_noise,
@@ -817,7 +817,6 @@ class Graph:
 
 class TorchModel(torch.nn.Module):
     """A neural network class using pytorch constructed from an instance of Graph."""
-    import torch
     def __init__(self, graph):
         super(TorchModel, self).__init__()
         self.graph = graph
