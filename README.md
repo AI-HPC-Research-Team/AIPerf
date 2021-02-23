@@ -182,11 +182,11 @@ docker pull nvidia/cuda:11.1-cudnn8-devel-ubuntu16.04
 
 针对NVIDIA V100
 ```
-nvidia-docker run -it --name build_AIPerf -v /userhome:/userhome -v /root/dataset:root/dataset nvidia/cuda:10.1-cudnn7-devel-ubuntu16.04
+nvidia-docker run -it --name build_AIPerf -v /userhome:/userhome -v /root/datasets:/root/datasets nvidia/cuda:10.1-cudnn7-devel-ubuntu16.04
 ```
 针对NVIDIA A100
 ```
-nvidia-docker run -it --name build_AIPerf -v /userhome:/userhome -v /root/dataset:root/dataset nvidia/cuda:11.1-cudnn8-devel-ubuntu16.04
+nvidia-docker run -it --name build_AIPerf -v /userhome:/userhome -v /root/datasets:/root/datasets nvidia/cuda:11.1-cudnn8-devel-ubuntu16.04
 ```
 
 **安装基础工具**
@@ -349,7 +349,7 @@ sudo docker load -i /userhome/AIPerf.tar
 参与实验的所有节点运行容器
 
 ```
-sudo nvidia-docker run -it --net=host -v /userhome:/userhome -v /root/dataset:root/dataset aiperf:latest
+sudo nvidia-docker run -it --net=host -v /userhome:/userhome -v /root/datasets:/root/datasets aiperf:latest
 ```
 
 **配置容器**
@@ -459,7 +459,7 @@ trial:
  command: CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7  \                                  # 3
        srun -N 1 -n 1 --ntasks-per-node=1 \
        --cpus-per-task=30 \	  # 4
-       python3 imagenet_tfkeras_slurm_hpo.py \
+       python3 imagenet_train.py \
        --slave 1 \								  # 5
        --ip 127.0.0.1 \							  # 6
        --batch_size 448 \						  # 7
