@@ -186,7 +186,7 @@ nvidia-docker run -it --name build_AIPerf -v /userhome:/userhome -v /root/datase
 ```
 针对NVIDIA A100
 ```
-nvidia-docker run -it --name build_AIPerf -v /userhome:/userhome -v /root/datasets:/root/datasets nvidia/cuda:11.1-cudnn8-devel-ubuntu16.04
+nvidia-docker run -it --name build_AIPerf -v /userhome:/userhome -v /root/datasets:/root/datasets nvcr.io/nvidia/cuda:11.2.0-cudnn8-devel-ubuntu18.04
 ```
 
 **安装基础工具**
@@ -267,6 +267,8 @@ git clone https://github.com/AI-HPC-Research-Team/AIPerf.git /userhome/AIPerf
 ```
 cd /userhome/AIPerf
 pip3 install -r requirements.txt --timeout 3000
+# For NVIDIA A100
+# pip3 install -r requirements-a100.txt --timeout 3000
 ```
 
 *编译安装*
