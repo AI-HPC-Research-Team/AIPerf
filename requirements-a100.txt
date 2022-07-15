@@ -1,6 +1,6 @@
 dill==0.3.2
 jinja2==2.11.2
-Keras==2.1.6
+Keras==2.5.0
 matplotlib==3.0.3
 tensorflow_gpu==2.5.0
 torch==1.8.0
