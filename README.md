@@ -1,3 +1,8 @@
+> Attention, tensorflow/pytorch/keras version of V100 and A100 images are different, which may introduce data range problem. For example, when reading a digital image, the data range may distribute in [0, 1.] or [0, 255], which would cause bug or wrong accuracy during training and inference. 
+``` python
+# TODO: check input input data of model
+```
+
 ![](https://github.com/AI-HPC-Research-Team/AIPerf/blob/master/logo.JPG)
 
 ![](https://github.com/AI-HPC-Research-Team/AIPerf/blob/master/logo_PCL.jpg) ![](https://github.com/AI-HPC-Research-Team/AIPerf/blob/master/logo_THU.jpg)
